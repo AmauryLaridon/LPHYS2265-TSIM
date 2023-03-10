@@ -1,8 +1,9 @@
 ############################################################################################################################
-# Thermodynamic Sea Ice Model (TSIM)
+# Ice Growth with Constant Temperature (IGCT)
 # Author : Amaury Laridon
 # Course : LPHYS2269 - Remote Sensing of Climate Change
-# Goal : Build a thermodynamic sea ice model that can be able to simulate a full seasonal cycle of sea ice growth and melt.
+# Goal : First part of the TSIM model. Modelisation of the evolution of sea-ice thickness using constant
+#        temperature and the Stefan's law. An ocean heat flux can be simulate.
 #        More information on the GitHub Page of the project : https://github.com/AmauryLaridon/TSIM.git
 # Date : 10/03/23
 ############################################################################################################################

@@ -2,114 +2,314 @@
 # Thermodynamic Sea Ice Model (TSIM)
 # Author : Amaury Laridon
 # Course : LPHYS2269 - Remote Sensing of Climate Change
-# Goal : Build a thermodynamic sea ice model that can be able to simulate a full seasonal cycle of sea ice growth and melt.
+# Goal : Third of the TSIM model. Modelisation of the evolution of sea-ice thickness with a dynamic surface temperature
+#        Free Surface Temperature (FST) and an Addition of Ocean and Snow (AOO)
 #        More information on the GitHub Page of the project : https://github.com/AmauryLaridon/TSIM.git
-# Date : 10/03/23
+# Date : 19/03/23
 ############################################################################################################################
 #################################################### Packages ##############################################################
 import numpy as np
 import matplotlib.pyplot as plt
-################################################### Parameters #############################################################
+import scipy.optimize as opt
+######################################## 2 Freeing surface temperature ############################################
+################################################### Parameters #####################################################
 ### Physical Constant ###
-L_fus = 3.35e5  # Latent heat of fusion for water [J/kg]
-rhoi = 917  # Sea ice density [kg/m³]
-ki = 2.2  # Sea ice thermal conductivity [W/m/K]
+epsilon = 0.99  # surface emissivity [Adim]
+sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]
+kelvin = 273.15  # Conversion form Celsius to Kelvin [Adim]
+alb_sur = 0.6  # surface albedo [Adim]
+ki = 2.2  # sea ice thermal conductivity [W/m/K]
 ks = 0.31  # Snow thermal conductivity [W/m/K]
-sec_per_day = 86400  # Seconds in one day [s/day]
-### Bottom boundary conditions ###
-T_bo = -1.8 + 273.15  # Bottom temperature [K]
+sec_per_day = 86400  # seconds in one day [s/day]
+L_fus = 3.35e5  # latent heat of fusion for water [J/kg]
+rho_i = 917  # sea ice density [kg/m³]
+c = 4000  # heat capacity of water [J/(kg.°K)]
+alb_wat = 0.1  # albedo of water [Adim]
+rho_w = 1025  # density of sea water [kg/m³]
+### Simulation parameters ###
+N_years = 10  # number of years in the simulation [Adim]
+N_days = 365 * N_years  # number of days in the simulation [Adim]
+h = 0.5  # sea ice thickness [m]
+h_w = 50  # depth of the ocean mix layer [m]
+M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
+# temperature at the freezing point of sea water with a salinity of 34g/kg
+T_bo = -1.8 + kelvin
+Day_0 = 1  # set the first day of the simulation [Adim]
+### Display Parameters ###
+plt.rcParams['text.usetex'] = True
+save_dir = "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Figures/"
+figure = plt.figure(figsize=(16, 10))
 
-######################################## 1 Ice growth with constant temperature ############################################
-##################################################### Model ################################################################
-### 1.1 Stefan and numerical solution for ice growth ###
-# arry with the values of the sea ice thickness for the 30 days when we want to compute
-N_days = 30
-h_i = np.zeros(N_days)
-h_i[0] = 0.1  # initial condition for the sea ice thickness for the first day [m]
-T_air = -10 + 273.15  # air temperature [K]
+
+########################################### Model of Surface Temperature ####################################################
+
+######################### Parameterization of atmospheric fluxes ####################################
 
 
-def fourier_cond_flux(h, T_f, T_su):
-    """Computation of the conductive heat flux trough the ice using the Fourier-Fick's law"""
-    F_c = ((T_f - T_su)/(h))*ki
-    return F_c
+def solar_flux(day):
+    """Definition of the atmospheric solar heat flux Q_sol for a given day in the year. Conversion from Fletcher(1965)"""
+    doy = day % 365
+    Q_sol = 314*np.exp((-(doy-164)**2)/4608)
+    return Q_sol
 
 
-def ice_thick(h_i, ocean_heat_flux=False, F_w=0):
-    """Computation of the evolution of the sea ice thickness using Stefan's law. An option gives the possibility to add an Oceanic heat flux"""
-    print("Evolution of the sea ice thickness")
-    print("-----------------------------")
-    for t in range(1, N_days):
-        print("Day = {}/{}".format(t, N_days))
-        print("h_i[t-1] = ", h_i[t-1])
-        if ocean_heat_flux:
-            Q_c = fourier_cond_flux(h_i[t-1], T_bo, T_air)
+def non_solar_flux(day):
+    """Definition of the atmospheric non solar heat flux Q_nsol for a given day in the year. Conversion from Fletcher(1965)"""
+    doy = day % 365
+    Q_nsol = 118*np.exp((-0.5*(doy-206)**2)/(53**2)) + 179
+    return Q_nsol
+
+
+######################### Model of surface temperature evolution ####################################
+
+
+def surface_temp(h, day):
+    """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
+    heat fluxes and return a single value for a given day and a given thickness of the ice."""
+
+    # finding the surface temperature using roots function from numpy. As required in 2.1.2 temperature is not
+    # physically sensible for ice in summer so we cap the surface temperature to 273,15°K.
+    if h > 0:
+        root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -ki/h, ki /
+                                      h * T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
+    else:
+        root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
+                   solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
+    # root = opt.newton(energ_bal_fun(day), T_su[day-1]) ## root computation with newton method from scipy
+    T_su = root
+
+    def net_surf_flux(h, day, T_su):
+        """Compute the net solar flux for a given day with a given sea ice thickness."""
+        nsf = solar_flux(day)*(1-alb_sur) + non_solar_flux(day) - \
+            epsilon*sigma*(T_su**4) - (ki/h)*(T_su - T_bo)
+        return nsf
+
+    nsf = net_surf_flux(h, day, T_su)
+
+    if nsf > 0:
+        # If the net solar flux is positive, this energy is available for melting and will be stored in a variable efm (energy for melting)
+        efm = nsf
+    else:
+        efm = 0  # If the net solar flux is negative or egal to zero, the efm = 0
+
+    return T_su, efm
+
+########################################### Model of the Ocean Mix Layer ####################################################
+
+
+def E_gain_mixed_layer(T_w, day, Q_w):
+    """ Compute the free water energy gain in one day. [J/m^2]
+    Incoming:  Q_sol: solar flux,  Q_nsol : non solar flux,  Q_w: flux from deep water
+    Outgoing: Blackbody radiation with temperature T_w"""
+    E_gain_mix_lay = (solar_flux(day)*(1-alb_wat) +
+                      non_solar_flux(day) + Q_w - epsilon*sigma*(T_w**4))*sec_per_day
+    return E_gain_mix_lay
+
+########################################### Model of Sea ice thickness ######################################################
+
+
+def fourier_cond_flux(h_i, T_su, snow, h_s):
+    """Computation of the conductive heat flux Q_c trough the ice using the Fourier-Fick's law (upward positive)
+    [W/m^2]"""
+    if snow == False:
+        Q_c = ((T_bo - T_su)/(h_i))*ki
+    else:
+        k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+        Q_c = (T_bo - T_su)*k_eff  # [W/m²]
+    print("Fourier-Thick conductive flux = {:.2f} W/m²".format(Q_c))
+    return Q_c
+
+
+def E_net_bottom(ice_thick,  ocean_heat, Q_w, snow, h_s, T_su, T_bo=T_bo):
+    """ Compute the total energy loss in one day at the bottom of the sea ice layer (upward positive)
+        [J/m^2]
+    """
+    if ocean_heat:
+        E_loss_through_ice = fourier_cond_flux(
+            ice_thick, T_su, snow, h_s) * sec_per_day
+        E_gain_ocean_flux = Q_w * sec_per_day
+        E_net_bot = E_loss_through_ice - E_gain_ocean_flux
+    else:
+        E_loss_through_ice = fourier_cond_flux(
+            ice_thick, T_su, snow, h_s) * sec_per_day
+        E_net_bot = E_loss_through_ice
+    return E_net_bot
+
+
+def E_net_surf(efm):
+    """ Compute the energy gain at the surface of the sea ice in one day due to a non-equilibrium between the solar and non-solar
+    flux incoming, the flux coming from the water through the ice and the ice blackbody radiation. This disequilibrium
+    is because the ice can't go over 273.15K without melting. This energy will hence be used to melt the ice during summer.
+    [J/m^2]
+    """
+    E_net_surf = efm * sec_per_day
+    return E_net_surf
+
+
+def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T_bo):
+    """Computation of the evolution of the sea ice thickness using Stefan's law.
+    An option gives the possibility to add an Oceanic heat flux.
+    This function returns an array with the sea ice thickness
+     and an array with the time of integration"""
+
+    ### Output Simulation Settings ###
+    print("------------------------------------------------------------------")
+    print("                    FST SEA ICE THIKNESS MODEL")
+    print("------------------------------------------------------------------")
+    print(
+        "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {:.2f} W/m²\nsnow = {}, h_s0 = {:.2f} m".format(N_days, T_bo-kelvin, h_i0, ocean_heat, Q_w, snow, h_s))
+    print("------------------------------------------------------------------")
+
+    #### Initialization ###
+    # array colecting the values of the sea ice thickness for each day
+    h_i = np.zeros(N_days)
+    h_i[0] = h_i0  # initial condition for the sea ice thickness for the first day [m]
+    # array colecting the values of surface temperature for each day
+    T_su_ar = np.empty(N_days)
+    # initialized surface temperature in regard of the ice thickness, incoming Energy and bottom temp.
+    T_su, efm = surface_temp(h_i0, day=1)
+    T_su_ar[0] = T_su
+    # array colecting the values of ocean mix layer temperature for each day
+    T_mix_lay_ar = np.empty(N_days)
+    # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
+    T_w = T_bo
+    T_mix_lay_ar[0] = T_w
+
+    time_range = range(0, integration_range)  # integration range in days
+
+    ### Dynamic Model ####
+    for day in range(1, integration_range):
+        ## Output ##
+        print("Day {}/{}".format(day, integration_range))
+        print("----------")
+        print("Sea ice thickness at begining of Day {} = {:.2f} m".format(
+            day, h_i[day-1]))
+
+        ## Ice Cover testing condition ##
+        # Test if there is some ice cover or not. If they are an ice cover we perform the same computation as before,
+        # the temperature of the ocean mixed layer remains at it's initial value of the freezing point temperature.
+        # If they are no more ice cover, we compute the energy desequilibrium to warm or cool the mixed layer.
+        if h_i[day-1] > 0:
+            ice_cover = True
         else:
-            Q_c = fourier_cond_flux(h_i[t-1], T_bo, T_air) + F_w
-        print("Q_c = ", Q_c)
-        delta_h = Q_c * (1/rhoi*L_fus)
-        print("delta_h = ", delta_h)
-        h_new = h_i[t-1] + delta_h
-        print("h_new = ", h_new)
-        h_i[t] = h_new
-        print("-----------------------------")
-    return h_i
+            ice_cover = False
+
+        if ice_cover == True:
+
+            ## Surface temperature computation ##
+            # Computation of the surface temperature given a particular day and ice thickness
+            T_su, efm = surface_temp(h_i[day-1], day)
+            T_su_ar[day] = T_su
+
+            ## Energy change at the bottom ##
+            # Energy lost at the bottom during one day due to flux from water to ice.[J/m^2]
+            E_net_bot = E_net_bottom(
+                h_i[day-1], ocean_heat, Q_w, snow, h_s, T_su)
+            # Mass of water freezed at the bottom of the ice layer at the end of one day [kg/m^2]
+            freezing_water_mass = E_net_bot/L_fus
+            # To obtain [m] as needed
+            sea_ice_gain = freezing_water_mass / rho_i
+
+            ## Energy change at the surface ##
+            # Energy gain at the surface during one day due to non equilibrium.[J/m^2]
+            E_net_sur = E_net_surf(efm)  # [J/m²]
+            # Mass of ice melted at the surface of the ice layer at the end of one day [kg/m²]
+            melt_ice_mass = E_net_sur/L_fus  # [kg/m²]
+            # To obtain [m] as needed
+            sea_ice_lost = melt_ice_mass/rho_i
+
+            ## Mix layer temperature ##
+            T_mix_lay_ar[day] = T_bo
+
+            ## Net balance of sea ice thickness ##
+            delta_h = sea_ice_gain - sea_ice_lost
+            h_i[day] = h_i[day-1] + delta_h
+
+        if ice_cover == False:
+            # set the latest ice thickness to 0 in order to have physical value.
+            h_i[day-1] = 0
+            ## Surface temperature computation ##
+            # Computation of the surface temperature given a particular day and ice thickness
+            T_su, efm = surface_temp(h_i[day-1], day)
+            T_su_ar[day] = T_su
+            if T_w >= T_bo:
+                # In this case the water can warm or cool without producing SI
+                # Energy gain by the mixed layer in one day [J/m^2]
+                delta_h = 0
+                E_gain = E_gain_mixed_layer(T_w, day, Q_w)
+                T_w += E_gain/(M_w*c)  # New mixed layer temperature [K]
+                T_mix_lay_ar[day] = T_w
+            else:
+                # In this case the water is cooling below the freezing point so we re-create ice
+                delta_T_excess = T_bo - T_w
+                # Excess of heat which will be turn into ice [J/m^2]
+                E_gain = delta_T_excess * M_w * c
+                freezing_water_mass = E_gain/L_fus  # [kg/m^2]
+                h_i[day] = freezing_water_mass/rho_i  # [m]
+                delta_h = h_i[day]
+                T_w = T_bo  # set the bottom temperature [K]
+                T_mix_lay_ar[day] = T_w
+
+        ## Output of simulation ##
+        print(
+            "Energy balance at the bottom during Day {} = {:.2f} MJ/m²".format(day, E_net_bot/1e6))
+        print("Variation of sea-ice thickness during Day {} = {:.2f} m".format(
+            day, delta_h))
+        print("Sea ice thickness at the end of Day {} = {:.2f} m".format(
+            day, h_i[day]))
+        print("------------------------------------------------------------------")
+    return h_i, T_su_ar, T_mix_lay_ar, time_range
 
 
-def stefan_law(t_0, T, h_0, k, deltaT, rhoi, L):
-    time = np.arange(t_0, T, 1)
-    H_t = np.zeros(N_days)
-    for t in time:
-        h_t = np.sqrt(h_0**2 + (2*k*deltaT*t)/(rhoi*L))
-        H_t[t] = h_t
-    return H_t
+########################################### Cases of Simulations ######################################################
+
+##### 3 Addition of Surface Ocean and Snow #####
+
+def first_and_mult_ice():
+    ##### Settings for ice-free conditions #####
+    ### Instancing ###
+    h_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0)
+    ### Display ###
+    ## Ice thickness evolution plot ##
+    Q_w = 5
+    h_s0 = 0
+    plt.plot(time_range, h_ice_free, label="h_ice")
+    plt.title('TSIM Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m², a layer of snow h_s0 = {:.2f}m\nalbedo = {}'.format(
+        N_days, Q_w, h_s0, alb_sur), size=22)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice Thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(save_dir + "first_and_mult_ice.png", dpi=300)
+    # plt.show()
+    plt.clf()
+    ## Temperature evolution plot ##
+    plt.plot(time_range, T_su_ice_free - kelvin, label="T_su")
+    plt.plot(time_range, T_mix_lay_ice_free - kelvin, label="T_mix")
+    plt.title('TSIM Temperature evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m², a layer of snow h_s0 = {:.2f}m\nalbedo = {}'.format(
+        N_days, Q_w, h_s0, alb_sur), size=22)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Temperature [°C]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(save_dir + "first_and_mult_ice_temp.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ##### Answers to question 3.1 ######################################################################################
+    # 3.1.1 Let the model run for 10 years. How thick does your ice get in winter? Are there still year-to-year changes?
+    # Answer : The ice tends to have a thickness of 1,7m in winter. After a few years (5-6) it seems that the sea ice
+    #          thickness has reached an equilibrium
+    # 3.1.2 When does the ocean become ice free?
+    # Answer : After a bit less than 200 days so rouglhy speaking near the end of May and the begining of June.
+    # 3.1.3 By how much do you have to reduce the non-solar flux to get multi-year ice?
+    # Answer : A reduction of 7% of the non-solar flux already produce multi-year ice since the first year.
+    # 3.1.4 : By how much do you have to increase the non-solar fluxes to have an ice-free Arctic all year round?
+    # Answer : An increase of 9% of the non-solar flux is sufficient to have an ice-free Arctif all year round after
+    #          five years.
+    ####################################################################################################################
 
 
-evo_h_i = ice_thick(h_i)  # instanciation modèle numérique
-evo_h_i_law = stefan_law(1, 30, h_i[0], ki, T_bo - T_air, rhoi, L_fus)
-
-## Affichage ##
-# 1.1.1
-plt.plot(np.arange(0, 30, 1), evo_h_i, label="Numerical model")
-plt.plot(np.arange(0, 30, 1), evo_h_i_law, label="Stefan's law")
-plt.title("Ice thickness evolution for 30 days", size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend()
-plt.grid()
-plt.show()
-# 1.1.2
-print("Thickness of the ice at the end of the simulation : ",
-      evo_h_i[-1], "m.")
-# 1.1.3
-print("Thickness of the ice at the end the period using Stefan's law : ",
-      evo_h_i_law[-1], "m.")
-
-### 1.2 Addition of an ocean heat flux ###
-F_w = 5  # oceanic heat flux[W/m²]
-
-evo_h_i_F_w = ice_thick(h_i, ocean_heat_flux=True,
-                        F_w=5)  # instanciation with F_w
-evo_h_i_F_w180 = ice_thick(h_i, ocean_heat_flux=True,
-                           F_w=180.4)  # instanciation with F_w
-# 1.2.1
-plt.plot(np.arange(0, 30, 1), evo_h_i, label="Numerical model without F_w")
-plt.plot(np.arange(0, 30, 1), evo_h_i_F_w, label="Numerical model with F_w")
-plt.plot(np.arange(0, 30, 1), evo_h_i_law, label="Stefan's law")
-plt.title("Ice thickness evolution for 30 days", size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend()
-plt.grid()
-plt.show()
-# 1.2.2
-print("Thickness of the ice at the end of the simulation : ",
-      evo_h_i_F_w[-1], "m.")
-# 1.2.3
-print("Thickness of the ice at the end of the simulation with F_w = 180.4W/m²: ",
-      evo_h_i_F_w180[-1], "m.")
-# 1.2.4
-h_1 = np.zeros(N_days)
-h_1[0] = 1
-
-### 1.3 Addition of snow on top of the ice ###
+if __name__ == "__main__":
+    first_and_mult_ice()

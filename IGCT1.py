@@ -270,7 +270,7 @@ print(
 
 # 1.3.2
 ## Instanciation ##
-ocean_heat_flux = False
+ocean_heat_flux = True
 h_i0 = 1
 # For the following value of the physical parameter the fourier_cond_flux function gives us the value of the conductive flux. In order to counterbalance this
 # value we have the put the same amount of radiative forcing with the OHF.

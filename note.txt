@@ -1,0 +1,8 @@
+Il ne faut pas répondre aux questions intermédiaires proposées dans le rapport.
+
+Le papier de référence est optionnel, le modèle qu'ils y décrivent n'est pas celui qu'on va conder (c'est une annexe dans l'article). Leur modèle est à trois couche le notre est à une couche. 
+Lire dans le détail l'article peut être long mais utile après avoir déjà essayé d'avancer dans les exercices. Pour la fin du projet, il y a des techniques pour tune le modèle dont on peut s'inspirer, par exemple pour l'albédo. À ces endroits l'article sera utile. Il y a aussi une figure à la fin sur ce qui se passe lorsqu'on perd de la glace. Si notre code est bon on devrait pouvoir reproduire ce passage d'une glace pérénne à une d'une seule année.
+
+Le premier rapport est à rendre pour le 31 mars. Il faut avoir finis le code pour dans deux semaines pour pouvoir alors en discuter. Ce premier rapport n'est pas pour des points en tant que tel. 
+
+Le dernier rapport est pour le 15 mai. Il faudra alors analyser les données d'ensembles de projections de la banquise. 

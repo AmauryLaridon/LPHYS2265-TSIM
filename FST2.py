@@ -180,8 +180,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
 
 ########################################### Cases of Simulations ######################################################
 
-### 2.1 Surface heat fluxes ###
-
+##### 2 Freeing Surface Temperature #####
+### 2.1 Surface Heat Fluxes ###
 
 def exo2_1_surf_heat_flux():
     """Parameterisation of the surface heat fluxes.
@@ -204,8 +204,8 @@ def exo2_1_surf_heat_flux():
     # plt.show()
     plt.clf()
 
+### 2.2 Calculate surface temperature ###
 
-## year = np.arange(1, N_days, 1)# 2.2 Calculate surface temperature ###
 
 def exo2_2_surf_temp():
     """Computation of the surface temperature.
@@ -248,8 +248,34 @@ def exo2_3_coupl_temp_thick():
     # plt.show()
     plt.clf()
 
+##### 3 Addition of Surface Ocean and Snow #####
+
+
+alb = 0.6
+
+
+def ice_free_cond():
+    ##### Settings for ice-free conditions #####
+    ### Instancing ###
+    h_ice_free, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0)
+    ### Display ###
+    Q_w = 5
+    h_s0 = 0
+    plt.plot(time_range, h_ice_free, label="h_ice_free")
+    plt.title('FST Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m², a layer of snow h_s0 = {:.2f}m\nalbedo = {}'.format(
+        N_days, Q_w, h_s0, alb), size=22)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice Thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(save_dir + "3.1.1.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
 
 if __name__ == "__main__":
     exo2_1_surf_heat_flux()
     exo2_2_surf_temp()
     exo2_3_coupl_temp_thick()
+    ice_free_cond()

@@ -65,8 +65,6 @@ def surface_temp(T_su_0):
         return f """
 
     for day in range(0, N_days):
-        # print(T_su)
-        # print(day)
         # finding the surface temperature using roots function from numpy. As required in 2.1.2 temperature is not
         # physically sensible for ice in summer so we cap the surface temperature to 273,15°K.
         root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -ki/h, ki /

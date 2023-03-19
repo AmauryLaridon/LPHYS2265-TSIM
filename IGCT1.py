@@ -289,3 +289,18 @@ plt.savefig(
     save_dir + "1.3.2.png", dpi=300)
 # plt.show()
 plt.clf()
+
+# 1.3.3
+## Instanciation ##
+snow = False
+Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0)
+print(
+    "Ocean Heat Flux needed without a layer of snow of {}m in order to keep the ice-thickness at 1m : {:.2f}W/m²".format(h_s0, Q_w))
+
+# 1.3.4
+## Instanciation ##
+snow = True
+h_s0 = 0.15
+Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0)
+print(
+    "Ocean Heat Flux needed with a layer of snow of {}m in order to keep the ice-thickness at 1m : {:.2f}W/m²".format(h_s0, Q_w))

@@ -25,18 +25,18 @@ N_days = 30  # number of days of integration
 h_i0 = 0.1  # initial sea ice thickness [m]
 T_su = -10 + kelvin  # air temperature [K]
 # Binary condition in order to implement ocean heat flux in the model. Will be used in 1.2
-ocean_heat_flux = False
-Q_w = 5  # oceanic heat flux[W/m²]
+""" ocean_heat_flux = False
+Q_w = 5  # oceanic heat flux[W/m²] """
 # Binary condition in order to implement a layer of snow in the model. Will be used in 1.3
-snow = False
-h_s0 = 0  # initial snow thickness [m]
+""" snow = False
+h_s0 = 0  # initial snow thickness [m] """
 ######################################## 1 Ice growth with constant temperature ############################################
 ##################################################### Model ################################################################
 
 ### Functions of the model ###
 
 
-def fourier_cond_flux(h_i, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0):
+def fourier_cond_flux(h_i, snow, h_s, T_bo=T_bo, T_su=T_su):
     """Computation of the conductive heat flux Q_c trough the ice using the Fourier-Fick's law (upward positive)
     [W/m^2]"""
     if snow == False:
@@ -48,13 +48,13 @@ def fourier_cond_flux(h_i, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0):
     return Q_c
 
 
-def E_net_bottom(ice_thick, T_su, T_bott, ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=snow, h_s=h_s0):
+def E_net_bottom(ice_thick, T_su, T_bott, ocean_heat, Q_w, snow, h_s):
     """ Compute the total energy loss in one day at the bottom of the sea ice layer (upward positive)
         [J/m^2]
     """
     if ocean_heat:
         E_loss_through_ice = fourier_cond_flux(
-            ice_thick, T_bo, T_su, snow, h_s0) * sec_per_day
+            ice_thick, T_bo, T_su, snow, h_s) * sec_per_day
         E_gain_ocean_flux = Q_w * sec_per_day
         E_net_bot = E_loss_through_ice - E_gain_ocean_flux
     else:
@@ -64,16 +64,16 @@ def E_net_bottom(ice_thick, T_su, T_bott, ocean_heat=ocean_heat_flux, Q_w=Q_w, s
     return E_net_bot
 
 
-def ice_thick(integration_range=N_days, T_su=T_su, T_bo=T_bo, h_i0=h_i0, ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=snow, h_s=h_s0):
-    """Computation of the evolution of the sea ice thickness using Stefan's law. 
-    An option gives the possibility to add an Oceanic heat flux. 
+def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_su=T_su, T_bo=T_bo):
+    """Computation of the evolution of the sea ice thickness using Stefan's law.
+    An option gives the possibility to add an Oceanic heat flux.
     This function returns an array with the sea ice thickness
      and an array with the time of integration"""
     print("------------------------------------------------------------------")
     print("                   ICGT SEA ICE THIKNESS MODEL")
     print("------------------------------------------------------------------")
     print(
-        "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, T_su = {:.2f} °C, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {} W/m²\nsnow = {}, h_s0 = {} m".format(N_days, T_su - kelvin, T_bo-kelvin, h_i0, ocean_heat_flux, Q_w, snow, h_s0))
+        "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, T_su = {:.2f} °C, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {:.2f} W/m²\nsnow = {}, h_s0 = {:.2f} m".format(N_days, T_su - kelvin, T_bo-kelvin, h_i0, ocean_heat, Q_w, snow, h_s))
     print("------------------------------------------------------------------")
     # array colecting the values of the sea ice thickness for each day
     h_i = np.zeros(N_days)
@@ -85,7 +85,7 @@ def ice_thick(integration_range=N_days, T_su=T_su, T_bo=T_bo, h_i0=h_i0, ocean_h
             day, h_i[day-1]))
         # Energy lost at the bottom during one day due to flux from water to ice.[J/m^2]
         E_net_bot = E_net_bottom(
-            h_i[day-1], T_su, T_bo, ocean_heat_flux, Q_w, snow, h_s)
+            h_i[day-1], T_su, T_bo, ocean_heat, Q_w, snow, h_s)
         # Mass of water freezed at the bottom of the ice layer at the end of one day [kg/m^2]
         Freezing_water_mass = E_net_bot/L_fus
         # We obtain [m] as needed
@@ -101,7 +101,7 @@ def ice_thick(integration_range=N_days, T_su=T_su, T_bo=T_bo, h_i0=h_i0, ocean_h
     return h_i, time_range
 
 
-def stefan_law(integration_range=N_days, T_su=T_su, T_bo=T_bo, h_i0=h_i0):
+def stefan_law(h_i0, integration_range=N_days, T_su=T_su, T_bo=T_bo):
     """Analytical solution of the sea ice thickness evolution following Stefan's law."""
     time_range = range(0, integration_range)  # integration range in days
     # array colecting the values of the sea ice thickness for each day
@@ -114,178 +114,199 @@ def stefan_law(integration_range=N_days, T_su=T_su, T_bo=T_bo, h_i0=h_i0):
     return H_t, time_range
 
 
-## Instanciation ##
-h_i, time_range = ice_thick()  # instanciation of the numerical model
-h_i_law, time_range_law = stefan_law()
-
-## Display ##
+## Display Param ##
 plt.rcParams['text.usetex'] = True
 
 save_dir = "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Figures/"
 figure = plt.figure(figsize=(16, 10))
-# 1.1.1
-plt.plot(time_range, h_i, label="Numerical model")
-plt.title("ICGT Ice thickness evolution for {} days".format(N_days), size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.1.1.png", dpi=300)
-# plt.show()
-plt.clf()
-# 1.1.2
-print(
-    "Thickness of the ice at the end of the simulation : {:.4f} m".format(h_i[-1]))
-# 1.1.3
-plt.plot(time_range, h_i, label="Numerical model")
-plt.plot(time_range, h_i_law, label="Stefan's law")
-plt.title("ICGT Ice thickness evolution for {} days".format(N_days), size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.1.3.png", dpi=300)
-# plt.show()
-plt.clf()
-print("Thickness of the ice at the end of the period using Stefan's law : {:.4f} m ".format(
-    h_i_law[-1]))
 
 
-### 1.2 Addition of an ocean heat flux ###
+def exo_1_1_Stef_law():
+    """Computation of the evolution of the sea ice thickness using Stefan's law. 
+    Correspond to the section 1.2 in Exercise_part_1.pdf on GitHub"""
 
-## Instanciation ##
-# Binary condition in order to implement ocean heat flux in the model
-ocean_heat_flux = True
-h_i_F_w, time_range = ice_thick(
-    ocean_heat=ocean_heat_flux)  # instanciation with F_w
+    ##### 1.1.1 #####
+    ## Instanciation ##
+    # instanciation of the numerical model
+    h_i, time_range = ice_thick(
+        h_i0=h_i0, ocean_heat=False, Q_w=0, snow=False, h_s=0)
+    h_i_law, time_range_law = stefan_law(h_i0=h_i0)
+
+    ## Display ##
+    plt.plot(time_range, h_i, label="Numerical model")
+    plt.title("ICGT Ice thickness evolution for {} days".format(N_days), size=26)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.1.1.png", dpi=300)
+    # plt.show()
+    plt.clf()
+    ##### 1.1.2 #####
+    print(
+        "Thickness of the ice at the end of the simulation : {:.4f} m".format(h_i[-1]))
+    ##### 1.1.3 #####
+    plt.plot(time_range, h_i, label="Numerical model")
+    plt.plot(time_range, h_i_law, label="Stefan's law")
+    plt.title("ICGT Ice thickness evolution for {} days".format(N_days), size=26)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.1.3.png", dpi=300)
+    # plt.show()
+    plt.clf()
+    print("Thickness of the ice at the end of the period using Stefan's law : {:.4f} m ".format(
+        h_i_law[-1]))
 
 
-## Display ##
+def exo1_2_add_OHF():
+    """Addition of Ocean Heat Flux (OHF) in the model. 
+    Correspond to the section 1.2 in Exercise_part_1.pdf on GitHub"""
 
-# 1.2.1
-plt.plot(time_range, h_i_F_w, label="Numerical model with OHF")
-plt.plot(time_range, h_i, label="Numerical model without OHF")
-plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
-    N_days, Q_w), size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.2.1.png", dpi=300)
-# plt.show()
-plt.clf()
+    ##### 1.2.1 #####
+    ## Instanciation ##
+    # Binary condition in order to implement ocean heat flux in the model
+    # instanciation of the numerical model
 
-# 1.2.2
+    h_i, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=False, Q_w=0, snow=False, h_s=0)
+    ocean_heat_flux = True
+    Q_w = 5  # oceanic heat flux[W/m²]
+    h_i_F_w, time_range = ice_thick(h_i0=0.1,
+                                    ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=False, h_s=0)  # instanciation with F_w
 
-print(
-    "Thickness of the ice at the end of the simulation with OHF = {:.2f} : {:.4f} m".format(Q_w, h_i_F_w[-1]))
+    ## Display ##
+    plt.plot(time_range, h_i_F_w, label="Numerical model with OHF")
+    plt.plot(time_range, h_i, label="Numerical model without OHF")
+    plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
+        N_days, Q_w), size=26)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.2.1.png", dpi=300)
+    # plt.show()
+    plt.clf()
 
-# 1.2.3
+    ##### 1.2.2 #####
+    print(
+        "Thickness of the ice at the end of the simulation with OHF = {:.2f} : {:.4f} m".format(Q_w, h_i_F_w[-1]))
 
-## Instanciation ##
-h_i0 = 0.1
-# For the following value of the physical parameter the fourier_cond_flux function gives us the value of the conductive flux. In order to counterbalance this
-# value we have the put the same amount of radiative forcing with the OHF.
-Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0)
-h_i_F_w180, time_range = ice_thick(
-    ocean_heat=ocean_heat_flux, Q_w=Q_w)  # instanciation with F_w
+    ##### 1.2.3 #####
+    ## Instanciation ##
+    h_i0 = 0.1
+    # For the following value of the physical parameter the fourier_cond_flux function gives us the value of the conductive flux. In order to counterbalance this
+    # value we have the put the same amount of radiative forcing with the OHF.
+    Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo,
+                            T_su=T_su, snow=snow, h_s=h_s0)
+    h_i_F_w180, time_range = ice_thick(h_i0=h_i0,
+                                       ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=False, h_s=0)  # instanciation with F_w
 
-## Display ##
-plt.plot(time_range, h_i_F_w180, label="Numerical model with OHF")
-# plt.plot(time_range, h_i, label="Numerical model without OHF")
-plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
-    N_days, Q_w), size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.2.3.png", dpi=300)
-# plt.show()
-plt.clf()
+    ## Display ##
+    plt.plot(time_range, h_i_F_w180, label="Numerical model with OHF")
+    # plt.plot(time_range, h_i, label="Numerical model without OHF")
+    plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
+        N_days, Q_w), size=26)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.2.3.png", dpi=300)
+    # plt.show()
+    plt.clf()
 
-print(
-    "Thickness of the ice at the end of the simulation with OHF = {:.2f} : {:.4f} m".format(Q_w, h_i_F_w180[-1]))
-# Analysis of the result : the ice thickness remains at its orignal value since we have here an OHC exactly conterbalancing the conductive flux in the ice i.e we have a net
-# energy balance of 0 so no gain or lose of ice during the all simulation.
+    print(
+        "Thickness of the ice at the end of the simulation with OHF = {:.2f} : {:.4f} m".format(Q_w, h_i_F_w180[-1]))
+    # Analysis of the result : the ice thickness remains at its orignal value since we have here an OHC exactly conterbalancing the conductive flux in the ice i.e we have a net
+    # energy balance of 0 so no gain or lose of ice during the all simulation.
 
-# 1.2.4
+    ##### 1.2.4 #####
+    ## Instanciation ##
+    Q_w = fourier_cond_flux(1, T_bo=T_bo, T_su=T_su)
+    # For the following value of the physical parameter the fourier_cond_flux function gives us a value of 18,039W/m^2. In order to counterbalance this
+    # value we have the put the same amount of radiative forcing with the OHF.
+    h_i0 = 1
+    ocean_heat_flux = True
+    h_i0_0, time_range = ice_thick(h_i0=h_i0,
+                                   ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=False, h_s=0)
 
-## Instanciation ##
+    ## Display ##
+    plt.plot(time_range, h_i0_0, label="Numerical model with OHF")
+    plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
+        N_days, Q_w), size=26)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.2.4.png", dpi=300)
+    # plt.show()
+    plt.clf()
 
-Q_w = fourier_cond_flux(1, T_bo=T_bo, T_su=T_su)
-# For the following value of the physical parameter the fourier_cond_flux function gives us a value of 18,039W/m^2. In order to counterbalance this
-# value we have the put the same amount of radiative forcing with the OHF.
-h_i0 = 1
-ocean_heat_flux = True
-h_i0_0, time_range = ice_thick(ocean_heat=ocean_heat_flux, Q_w=Q_w, h_i0=h_i0)
 
-## Display ##
-plt.plot(time_range, h_i0_0, label="Numerical model")
-plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²'.format(
-    N_days, Q_w), size=26)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.2.4.png", dpi=300)
-# plt.show()
-plt.clf()
+def exo1_3_add_snow():
+    """Addition of snow in the model. 
+    Correspond to the section 1.3 in Exercise_part_1.pdf on GitHub"""
+    ## Physical parameters ##
+    h_i0 = 0.1
+    h_s0 = 0.05
+    Q_w = 0
+    ###### 1.3.1 #####
+    ## Instanciation ##
+    h_i, time_range = ice_thick(
+        h_i0=h_i0, ocean_heat=False, Q_w=0, snow=False, h_s=0)
+    h_i_wt_snow, time_range = ice_thick(
+        h_i0=h_i0, ocean_heat=False, Q_w=0, snow=True, h_s=h_s0)
 
-### 1.3 Addition of snow ###
+    ## Display ##
+    plt.plot(time_range, h_i_wt_snow, label="With Snow")
+    plt.plot(time_range, h_i, label="Without Snow")
+    plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²\nwith a layer of snow h_s0 = {:.2f}m'.format(
+        N_days, Q_w, h_s0), size=22)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.3.1.png", dpi=300)
+    # plt.show()
+    plt.clf()
+    print(
+        "Thickness of the ice at the end of the simulation without but with a snow layer = {:.2f}m : {:.4f}m".format(h_s0, h_i_wt_snow[-1]))
 
-## Physical parameters ##
+    ##### 1.3.2 #####
+    ## Instanciation ##
+    ocean_heat_flux = True
+    h_i0 = 1
+    snow = True
+    # For the following value of the physical parameter the fourier_cond_flux function gives us the value of the conductive flux. In order to counterbalance this
+    # value we have the put the same amount of radiative forcing with the OHF.
+    Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo,
+                            T_su=T_su, snow=snow, h_s=h_s0)
+    h_i_wt_ice_cst, time_range = ice_thick(
+        h_i0=h_i0, ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=snow, h_s=h_s0)
+    print(
+        "Ocean heat flux needed to keep the ice thickness constat at {:.2f}m with a {:.2f}m layer of snow : {:.2f} W/m²".format(h_i0, h_s0, Q_w))
 
-h_i0 = 0.1
-h_s0 = 0.05
+    ## Display ##
+    plt.plot(time_range, h_i_wt_ice_cst, label="Numerical model")
+    plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²\nwith a layer of snow h_s0 = {:.2f}m'.format(
+        N_days, Q_w, h_s0), size=22)
+    plt.xlabel("Days", size=20)
+    plt.ylabel("Ice thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    plt.savefig(
+        save_dir + "1.3.2.png", dpi=300)
+    # plt.show()
+    plt.clf()
 
-# 1.3.1
 
-## Instanciation ##
-ocean_heat_flux = False
-Q_w = 0
-snow = True
-h_i_wt_snow, time_range = ice_thick(
-    h_i0=h_i0, ocean_heat=ocean_heat_flux, snow=snow, h_s=h_s0)
-
-## Display ##
-plt.plot(time_range, h_i_wt_snow, label="With Snow")
-plt.plot(time_range, h_i, label="Without Snow")
-plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²\nwith a layer of snow h_s0 = {:.2f}m'.format(
-    N_days, Q_w, h_s0), size=22)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.3.1.png", dpi=300)
-# plt.show()
-plt.clf()
-print(
-    "Thickness of the ice at the end of the simulation without but with a snow layer = {:.2f}m : {:.4f}m".format(h_s0, h_i_wt_snow[-1]))
-
-# 1.3.2
-## Instanciation ##
-ocean_heat_flux = False
-h_i0 = 1
-# For the following value of the physical parameter the fourier_cond_flux function gives us the value of the conductive flux. In order to counterbalance this
-# value we have the put the same amount of radiative forcing with the OHF.
-Q_w = fourier_cond_flux(h_i=h_i0, T_bo=T_bo, T_su=T_su, snow=snow, h_s=h_s0)
-h_i_wt_ice_cst, time_range = ice_thick(
-    h_i0=h_i0, ocean_heat=ocean_heat_flux, Q_w=Q_w, snow=snow, h_s=h_s0)
-## Display ##
-plt.plot(time_range, h_i_wt_ice_cst, label="Numerical model")
-plt.title('ICGT Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m²\nwith a layer of snow h_s0 = {:.2f}m'.format(
-    N_days, Q_w, h_s0), size=22)
-plt.xlabel("Days", size=20)
-plt.ylabel("Ice thickness [m]", size=20)
-plt.legend(fontsize=18)
-plt.grid()
-plt.savefig(
-    save_dir + "1.3.2.png", dpi=300)
-# plt.show()
-plt.clf()
+# exo_1_1_Stef_law()
+# exo1_2_add_OHF()
+exo1_3_add_snow()

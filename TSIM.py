@@ -17,7 +17,7 @@ import scipy.optimize as opt
 epsilon = 0.99  # surface emissivity [Adim]
 sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]
 kelvin = 273.15  # Conversion form Celsius to Kelvin [Adim]
-alb_sur = 0.6  # surface albedo [Adim]
+alb_sur = 0.8  # surface albedo [Adim]
 ki = 2.2  # sea ice thermal conductivity [W/m/K]
 ks = 0.31  # Snow thermal conductivity [W/m/K]
 sec_per_day = 86400  # seconds in one day [s/day]
@@ -27,7 +27,7 @@ c = 4000  # heat capacity of water [J/(kg.°K)]
 alb_wat = 0.1  # albedo of water [Adim]
 rho_w = 1025  # density of sea water [kg/m³]
 ### Simulation parameters ###
-N_years = 10  # number of years in the simulation [Adim]
+N_years = 50  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
 h = 0.5  # sea ice thickness [m]
 h_w = 50  # depth of the ocean mix layer [m]
@@ -269,7 +269,7 @@ def first_and_mult_ice():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
     h_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
-        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0)
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0){}
     ### Display ###
     ## Ice thickness evolution plot ##
     Q_w = 5
@@ -311,5 +311,59 @@ def first_and_mult_ice():
     ####################################################################################################################
 
 
+def ctrl_sim():
+    ##### Settings for ice-free conditions #####
+    ### Instancing ###
+    h_ice, T_su, T_mix_lay, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0)
+    ### Display ###
+    ## Ice thickness evolution plot ##
+    Q_w = 5
+    h_s0 = 0
+
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle(
+        'TSIM Model\n' + r'$\alpha_S$ = {}, $Q_W$ = {}W/m²'.format(alb_sur, Q_w))
+
+    axs[0, 0].plot(time_range, h_ice, label="h_ice", linewidth=0.4)
+    axs[0, 0].set_title('Ice thickness')
+    axs[0, 0].set_xlabel('Days')
+    axs[0, 0].set_ylabel('Thickness [m]')
+
+    axs[0, 1].plot(time_range, h_ice, label='h_snow',
+                   color='grey', linewidth=0.4)
+    axs[0, 1].set_title('Snow thickness')
+    axs[0, 1].sharex(axs[0, 0])
+    # axs[0, 1].set_xlabel('Days')
+    # axs[0, 0].set_ylabel('Thickness [m]')
+
+    axs[1, 0].plot(time_range, T_su, label='T_su',
+                   color='orange', linewidth=0.4)
+    axs[1, 0].set_title('Surface Temperature')
+    axs[1, 0].sharex(axs[0, 0])
+    axs[1, 0].set_xlabel('Days')
+    axs[1, 0].set_ylabel('Temperature [°K]')
+
+    axs[1, 1].plot(time_range, T_mix_lay, label='T_w',
+                   color='green', linewidth=0.4)
+    axs[1, 1].set_title('Mix Layered Temperature')
+    axs[1, 1].sharex(axs[1, 0])
+    # axs[1, 1].set_xlabel('Days')
+    # axs[1, 1].set_ylabel('Temperature [°K]')
+
+    # for ax in axs.flat:
+    #    ax.set(xlabel='Days', ylabel='Temperature [°K]')
+
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    # for ax in axs.flat:
+    #    ax.label_outer()
+
+    fig.tight_layout()
+    plt.savefig(save_dir + "ctrl_sim.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+
 if __name__ == "__main__":
-    first_and_mult_ice()
+    # first_and_mult_ice()
+    ctrl_sim()

@@ -23,6 +23,7 @@ ks = 0.31  # Snow thermal conductivity [W/m/K]
 sec_per_day = 86400  # seconds in one day [s/day]
 L_fus = 3.35e5  # latent heat of fusion for water [J/kg]
 rho_i = 917  # sea ice density [kg/m³]
+rho_s = 330  # snow density [kg/m³]
 c = 4000  # heat capacity of water [J/(kg.°K)]
 alb_wat = 0.1  # albedo of water [Adim]
 rho_w = 1025  # density of sea water [kg/m³]
@@ -63,28 +64,29 @@ def non_solar_flux(day):
 ######################### Model of surface temperature evolution ####################################
 
 
-def surface_temp(h, day):
+def surface_temp(h_i, h_s, day):
     """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
-    heat fluxes and return a single value for a given day and a given thickness of the ice."""
+    heat fluxes and return a single value for a given day and a given thickness of the ice and snow"""
 
     # finding the surface temperature using roots function from numpy. As required in 2.1.2 temperature is not
     # physically sensible for ice in summer so we cap the surface temperature to 273,15°K.
-    if h > 0:
-        root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -ki/h, ki /
-                                      h * T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
+    if h_i > 0:
+        k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+        root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
+                   T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
     else:
         root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
                    solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
-    # root = opt.newton(energ_bal_fun(day), T_su[day-1]) ## root computation with newton method from scipy
     T_su = root
 
-    def net_surf_flux(h, day, T_su):
-        """Compute the net solar flux for a given day with a given sea ice thickness."""
+    def net_surf_flux(h_i, h_s, day, T_su):
+        """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
+        k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
         nsf = solar_flux(day)*(1-alb_sur) + non_solar_flux(day) - \
-            epsilon*sigma*(T_su**4) - (ki/h)*(T_su - T_bo)
+            epsilon*sigma*(T_su**4) - k_eff*(T_su - T_bo)
         return nsf
 
-    nsf = net_surf_flux(h, day, T_su)
+    nsf = net_surf_flux(h_i, h_s, day, T_su)
 
     if nsf > 0:
         # If the net solar flux is positive, this energy is available for melting and will be stored in a variable efm (energy for melting)
@@ -121,9 +123,7 @@ def fourier_cond_flux(h_i, T_su, snow, h_s):
 
 
 def E_net_bottom(ice_thick,  ocean_heat, Q_w, snow, h_s, T_su, T_bo=T_bo):
-    """ Compute the total energy loss in one day at the bottom of the sea ice layer (upward positive)
-        [J/m^2]
-    """
+    """ Compute the total energy loss in one day at the bottom of the sea ice layer (upward positive)[J/m^2] """
     if ocean_heat:
         E_loss_through_ice = fourier_cond_flux(
             ice_thick, T_su, snow, h_s) * sec_per_day
@@ -146,31 +146,49 @@ def E_net_surf(efm):
     return E_net_surf
 
 
-def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T_bo):
-    """Computation of the evolution of the sea ice thickness using Stefan's law.
+def snow_fall(day):
+    """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
+        30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall 
+        during these three different periods."""
+    doy = day % 365
+    if doy >= 232 and doy <= 304:  # between 20 August and October (included)
+        return 0.3/(304-232)
+    elif doy >= 305 or doy <= 120:  # between November and April (included)
+        return 0.05/(365-305+120)
+    elif doy >= 121 and doy <= 151:  # May
+        return 0.05/(151-121)
+    else:
+        return 0
+
+
+def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=T_bo):
+    """Computation of the evolution of the sea ice and snow thickness using Stefan's law.
     An option gives the possibility to add an Oceanic heat flux.
-    This function returns an array with the sea ice thickness
-     and an array with the time of integration"""
+    This function returns an array with the sea ice thickness, snow thickness, surface temperature, mixed layer temperature and
+    and an array with the time of integration"""
 
     ### Output Simulation Settings ###
     print("------------------------------------------------------------------")
-    print("                    FST SEA ICE THIKNESS MODEL")
+    print("             TSIM SEA ICE AND SNOW THICKNESS MODEL")
     print("------------------------------------------------------------------")
     print(
-        "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {:.2f} W/m²\nsnow = {}, h_s0 = {:.2f} m".format(N_days, T_bo-kelvin, h_i0, ocean_heat, Q_w, snow, h_s))
+        "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {:.2f} W/m²\nsnow = {}, h_s0 = {:.2f} m".format(N_days, T_bo-kelvin, h_i0, ocean_heat, Q_w, snow, h_s0))
     print("------------------------------------------------------------------")
 
     #### Initialization ###
     # array colecting the values of the sea ice thickness for each day
     h_i = np.zeros(N_days)
     h_i[0] = h_i0  # initial condition for the sea ice thickness for the first day [m]
+    # array colecting the values of snow thickness for each day
+    h_s = np.zeros(N_days)
+    h_s[0] = h_s0  # initial condition for the snow thickness for the first day [m]
     # array colecting the values of surface temperature for each day
-    T_su_ar = np.empty(N_days)
+    T_su_ar = np.zeros(N_days)
     # initialized surface temperature in regard of the ice thickness, incoming Energy and bottom temp.
-    T_su, efm = surface_temp(h_i0, day=1)
+    T_su, efm = surface_temp(h_i0, h_s0, day=1)
     T_su_ar[0] = T_su
     # array colecting the values of ocean mix layer temperature for each day
-    T_mix_lay_ar = np.empty(N_days)
+    T_mix_lay_ar = np.zeros(N_days)
     # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
     T_w = T_bo
     T_mix_lay_ar[0] = T_w
@@ -184,6 +202,9 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
         print("----------")
         print("Sea ice thickness at begining of Day {} = {:.2f} m".format(
             day, h_i[day-1]))
+        if snow == True:
+            print("Snow thickness at begining of Day {} = {:.2f} m".format(
+                day, h_s[day-1]))
 
         ## Ice Cover testing condition ##
         # Test if there is some ice cover or not. If they are an ice cover we perform the same computation as before,
@@ -195,16 +216,24 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
             ice_cover = False
 
         if ice_cover == True:
+            if snow == True:
+                ## Snow thickness instanciation ##
+                if h_s[day-1] < 0:
+                    h_s[day-1] = 0
+                snow_gain = snow_fall(day)
+                h_s[day] = h_s[day-1] + snow_fall(day)
+            else:
+                snow_gain = 0
 
             ## Surface temperature computation ##
-            # Computation of the surface temperature given a particular day and ice thickness
-            T_su, efm = surface_temp(h_i[day-1], day)
+            # Computation of the surface temperature given a particular day and ice and snow thickness
+            T_su, efm = surface_temp(h_i[day-1], h_s[day-1], day)
             T_su_ar[day] = T_su
 
             ## Energy change at the bottom ##
             # Energy lost at the bottom during one day due to flux from water to ice.[J/m^2]
             E_net_bot = E_net_bottom(
-                h_i[day-1], ocean_heat, Q_w, snow, h_s, T_su)
+                h_i[day-1], ocean_heat, Q_w, snow, h_s[day-1], T_su)
             # Mass of water freezed at the bottom of the ice layer at the end of one day [kg/m^2]
             freezing_water_mass = E_net_bot/L_fus
             # To obtain [m] as needed
@@ -213,24 +242,36 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
             ## Energy change at the surface ##
             # Energy gain at the surface during one day due to non equilibrium.[J/m^2]
             E_net_sur = E_net_surf(efm)  # [J/m²]
-            # Mass of ice melted at the surface of the ice layer at the end of one day [kg/m²]
-            melt_ice_mass = E_net_sur/L_fus  # [kg/m²]
-            # To obtain [m] as needed
-            sea_ice_lost = melt_ice_mass/rho_i
+            if h_s[day-1] > 0:
+                # Mass of ice melted at the surface of the ice layer at the end of one day [kg/m²]
+                melt_snow_mass = E_net_sur/L_fus
+                # To obtain [m] as needed
+                snow_lost = melt_snow_mass/rho_s
+            else:
+                # Mass of ice melted at the surface of the ice layer at the end of one day [kg/m²]
+                melt_ice_mass = E_net_sur/L_fus  # [kg/m²]
+                # To obtain [m] as needed
+                sea_ice_lost = melt_ice_mass/rho_i
+                snow_lost = 0
 
             ## Mix layer temperature ##
             T_mix_lay_ar[day] = T_bo
 
             ## Net balance of sea ice thickness ##
-            delta_h = sea_ice_gain - sea_ice_lost
-            h_i[day] = h_i[day-1] + delta_h
+            delta_h_i = sea_ice_gain - sea_ice_lost
+            h_i[day] = h_i[day-1] + delta_h_i
+            ## Net balance of snow thickness ##
+            delta_h_s = snow_gain - snow_lost
+            h_s[day] = h_s[day-1] + delta_h_s
 
         if ice_cover == False:
             # set the latest ice thickness to 0 in order to have physical value.
             h_i[day-1] = 0
+            # output
+            print("No ice cover at Day {}".format(day))
             ## Surface temperature computation ##
             # Computation of the surface temperature given a particular day and ice thickness
-            T_su, efm = surface_temp(h_i[day-1], day)
+            T_su, efm = surface_temp(h_i[day-1], h_s[day-1], day)
             T_su_ar[day] = T_su
             if T_w >= T_bo:
                 # In this case the water can warm or cool without producing SI
@@ -254,11 +295,11 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
         print(
             "Energy balance at the bottom during Day {} = {:.2f} MJ/m²".format(day, E_net_bot/1e6))
         print("Variation of sea-ice thickness during Day {} = {:.2f} m".format(
-            day, delta_h))
+            day, delta_h_i))
         print("Sea ice thickness at the end of Day {} = {:.2f} m".format(
             day, h_i[day]))
         print("------------------------------------------------------------------")
-    return h_i, T_su_ar, T_mix_lay_ar, time_range
+    return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range
 
 
 ########################################### Cases of Simulations ######################################################
@@ -268,8 +309,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_bo=T
 def first_and_mult_ice():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
-        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0){}
+    h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
     Q_w = 5
@@ -311,29 +352,33 @@ def first_and_mult_ice():
     ####################################################################################################################
 
 
-def ctrl_sim():
+def ctrl_sim_wth_snow():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, T_su, T_mix_lay, time_range = ice_thick(
-        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s=0)
+    h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
+    h_i0 = 0.1
     Q_w = 5
     h_s0 = 0
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
-        'TSIM Model\n' + r'$\alpha_S$ = {}, $Q_W$ = {}W/m²'.format(alb_sur, Q_w))
+        'TSIM Model without snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(alb_sur, Q_w, h_i0, h_s0, N_years))
 
     axs[0, 0].plot(time_range, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
     axs[0, 0].set_xlabel('Days')
     axs[0, 0].set_ylabel('Thickness [m]')
+    # axs[0, 1].set_xticks(np.arange(0, 5, 1))
+    axs[0, 0].grid()
 
-    axs[0, 1].plot(time_range, h_ice, label='h_snow',
-                   color='grey', linewidth=0.4)
+    axs[0, 1].plot(time_range, h_snow, label='h_snow',
+                   color='c', linewidth=0.4)
     axs[0, 1].set_title('Snow thickness')
     axs[0, 1].sharex(axs[0, 0])
+    axs[0, 1].grid()
     # axs[0, 1].set_xlabel('Days')
     # axs[0, 0].set_ylabel('Thickness [m]')
 
@@ -343,11 +388,13 @@ def ctrl_sim():
     axs[1, 0].sharex(axs[0, 0])
     axs[1, 0].set_xlabel('Days')
     axs[1, 0].set_ylabel('Temperature [°K]')
+    axs[1, 0].grid()
 
     axs[1, 1].plot(time_range, T_mix_lay, label='T_w',
                    color='green', linewidth=0.4)
     axs[1, 1].set_title('Mix Layered Temperature')
     axs[1, 1].sharex(axs[1, 0])
+    axs[1, 1].grid()
     # axs[1, 1].set_xlabel('Days')
     # axs[1, 1].set_ylabel('Temperature [°K]')
 
@@ -359,11 +406,70 @@ def ctrl_sim():
     #    ax.label_outer()
 
     fig.tight_layout()
-    plt.savefig(save_dir + "ctrl_sim.png", dpi=300)
+    plt.savefig(save_dir + "ctrl_sim_no_snow.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+
+def ctrl_sim():
+    ##### Settings for ice-free conditions #####
+    ### Instancing ###
+    h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=5, snow=True, h_s0=0)
+    ### Display ###
+    ## Ice thickness evolution plot ##
+    Q_w = 5
+    h_i0 = 0.1
+    h_s0 = 0
+
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle(
+        'TSIM Model with snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(alb_sur, Q_w, h_i0, h_s0, N_years))
+
+    axs[0, 0].plot(time_range, h_ice, label="h_ice", linewidth=0.4)
+    axs[0, 0].set_title('Ice thickness')
+    axs[0, 0].set_xlabel('Days')
+    axs[0, 0].set_ylabel('Thickness [m]')
+    axs[0, 0].grid()
+
+    axs[0, 1].plot(time_range, h_snow, label='h_snow',
+                   color='c', linewidth=0.4)
+    axs[0, 1].set_title('Snow thickness')
+    axs[0, 1].sharex(axs[0, 0])
+    axs[0, 1].grid()
+    # axs[0, 1].set_xlabel('Days')
+    # axs[0, 0].set_ylabel('Thickness [m]')
+
+    axs[1, 0].plot(time_range, T_su, label='T_su',
+                   color='orange', linewidth=0.4)
+    axs[1, 0].set_title('Surface Temperature')
+    axs[1, 0].sharex(axs[0, 0])
+    axs[1, 0].set_xlabel('Days')
+    axs[1, 0].set_ylabel('Temperature [°K]')
+    axs[1, 0].grid()
+
+    axs[1, 1].plot(time_range, T_mix_lay, label='T_w',
+                   color='green', linewidth=0.4)
+    axs[1, 1].set_title('Mix Layered Temperature')
+    axs[1, 1].sharex(axs[1, 0])
+    axs[1, 1].grid()
+    # axs[1, 1].set_xlabel('Days')
+    # axs[1, 1].set_ylabel('Temperature [°K]')
+
+    # for ax in axs.flat:
+    #    ax.set(xlabel='Days', ylabel='Temperature [°K]')
+
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    # for ax in axs.flat:
+    #    ax.label_outer()
+
+    fig.tight_layout()
+    plt.savefig(save_dir + "ctrl_sim_with_snow.png", dpi=300)
     # plt.show()
     plt.clf()
 
 
 if __name__ == "__main__":
     # first_and_mult_ice()
+    ctrl_sim_wth_snow()
     ctrl_sim()

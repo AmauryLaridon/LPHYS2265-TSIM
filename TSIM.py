@@ -356,11 +356,11 @@ def ctrl_sim_wth_snow():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
     h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
-        h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
+        h_i0=0.1, ocean_heat=True, Q_w=2, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
     h_i0 = 0.1
-    Q_w = 5
+    Q_w = 2
     h_s0 = 0
 
     fig, axs = plt.subplots(2, 2)
@@ -471,5 +471,5 @@ def ctrl_sim():
 
 if __name__ == "__main__":
     # first_and_mult_ice()
-    ctrl_sim_wth_snow()
+    # ctrl_sim_wth_snow()
     ctrl_sim()

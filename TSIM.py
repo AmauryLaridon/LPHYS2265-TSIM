@@ -76,7 +76,7 @@ def surface_temp(h_i, h_s, day):
                    T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
     else:
         root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
-                   solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
+                   solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]])
     T_su = root
 
     def net_surf_flux(h_i, h_s, day, T_su):
@@ -152,11 +152,11 @@ def snow_fall(day):
         during these three different periods."""
     doy = day % 365
     if doy >= 232 and doy <= 304:  # between 20 August and October (included)
-        return 0.3/(304-232)
+        return (0.3/(304-232))*2
     elif doy >= 305 or doy <= 120:  # between November and April (included)
-        return 0.05/(365-305+120)
+        return (0.05/(365-305+120))*2
     elif doy >= 121 and doy <= 151:  # May
-        return 0.05/(151-121)
+        return (0.05/(151-121))*2
     else:
         return 0
 
@@ -198,7 +198,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     ##### Dynamic Model ######
     for day in range(1, integration_range):
         ### Output ###
-        print("Day {}/{}".format(day, integration_range))
+        print("Day {}/{}".format(day, integration_range-1))
         print("----------")
         print("Sea ice thickness at begining of Day {} = {:.2f} m".format(
             day, h_i[day-1]))
@@ -221,10 +221,10 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
                 ## Snow thickness instanciation ##
                 # We first add the snow layer corresponding to the snow fall for a given day. We will later compute wheter there is
                 # a snow melting or not.
-                if h_s[day-1] < 0:  # a tester en mettant en commentaire, avec ce qui est rajouté en dessous peut ne plus être nécessaire
-                    h_s[day-1] = 0
+                # if h_s[day-1] < 0:  # a tester en mettant en commentaire, avec ce qui est rajouté en dessous peut ne plus être nécessaire
+                #    h_s[day-1] = 0
                 snow_gain = snow_fall(day)
-                h_s[day] = h_s[day-1] + snow_fall(day)
+                # h_s[day] = h_s[day-1] + snow_fall(day)
             else:
                 snow_gain = 0
 
@@ -299,26 +299,33 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             h_i[day-1] = 0
             # output
             print("No ice cover at Day {}".format(day))
+            # if there is no ice there is no layer of snow
+            h_s[day-1] = 0
             ## Surface temperature computation ##
             # Computation of the surface temperature given a particular day and ice thickness
             T_su, efm = surface_temp(h_i[day-1], h_s[day-1], day)
             T_su_ar[day] = T_su
             if T_w >= T_bo:
-                # In this case the water can warm or cool without producing SI
+                # In this case the water can warm without producing sea ice
                 # Energy gain by the mixed layer in one day [J/m^2]
                 delta_h = 0
                 E_gain = E_gain_mixed_layer(T_w, day, Q_w)
-                T_w += E_gain/(M_w*c)  # New mixed layer temperature [K]
+                T_w += E_gain/(M_w*c)  # New mixed layer temperature [°K]
                 T_mix_lay_ar[day] = T_w
             else:
                 # In this case the water is cooling below the freezing point so we re-create ice
-                delta_T_excess = T_bo - T_w
+                delta_T_excess = np.abs(T_bo - T_w)
                 # Excess of heat which will be turn into ice [J/m^2]
                 E_gain = delta_T_excess * M_w * c
                 freezing_water_mass = E_gain/L_fus  # [kg/m^2]
                 h_i[day] = freezing_water_mass/rho_i  # [m]
+
+                # We make this assumption in order to avoid a bug due to a too large time step
+                if h_i[day] < 0.1:
+                    h_i[day] = 0.1
+                    delta_h = 0.1
                 delta_h = h_i[day]
-                T_w = T_bo  # set the bottom temperature [K]
+                T_w = T_bo  # set the bottom temperature [°K]
                 T_mix_lay_ar[day] = T_w
 
         ## Output of simulation ##
@@ -451,38 +458,41 @@ def ctrl_sim():
     Q_w = 5
     h_i0 = 0.1
     h_s0 = 0
+    time_range_years = [time_range[i]/365 for i in range(N_days)]
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
         'TSIM Model with snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(alb_sur, Q_w, h_i0, h_s0, N_years))
 
-    axs[0, 0].plot(time_range, h_ice, label="h_ice", linewidth=0.4)
+    axs[0, 0].plot(time_range_years, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
-    axs[0, 0].set_xlabel('Days')
+    axs[0, 0].set_xlabel('Year')
     axs[0, 0].set_ylabel('Thickness [m]')
     axs[0, 0].grid()
 
-    axs[0, 1].plot(time_range, h_snow, label='h_snow',
+    axs[0, 1].plot(time_range_years, h_snow, label='h_snow',
                    color='c', linewidth=0.4)
     axs[0, 1].set_title('Snow thickness')
     axs[0, 1].sharex(axs[0, 0])
+    axs[0, 1].set_xlabel('Year')
     axs[0, 1].grid()
     # axs[0, 1].set_xlabel('Days')
     # axs[0, 0].set_ylabel('Thickness [m]')
 
-    axs[1, 0].plot(time_range, T_su, label='T_su',
+    axs[1, 0].plot(time_range_years, T_su - kelvin, label='T_su',
                    color='orange', linewidth=0.4)
     axs[1, 0].set_title('Surface Temperature')
     axs[1, 0].sharex(axs[0, 0])
-    axs[1, 0].set_xlabel('Days')
-    axs[1, 0].set_ylabel('Temperature [°K]')
+    axs[1, 0].set_xlabel('Year')
+    axs[1, 0].set_ylabel('Temperature [°C]')
     axs[1, 0].grid()
 
-    axs[1, 1].plot(time_range, T_mix_lay, label='T_w',
+    axs[1, 1].plot(time_range_years, T_mix_lay - kelvin, label='T_w',
                    color='green', linewidth=0.4)
     axs[1, 1].set_title('Mix Layered Temperature')
     axs[1, 1].sharex(axs[1, 0])
     axs[1, 1].grid()
+    axs[1, 1].set_xlabel('Year')
     # axs[1, 1].set_xlabel('Days')
     # axs[1, 1].set_ylabel('Temperature [°K]')
 

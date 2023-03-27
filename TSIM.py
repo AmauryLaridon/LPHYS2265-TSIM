@@ -31,6 +31,8 @@ rho_w = 1025  # density of sea water [kg/m³]
 N_years = 50  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
 h = 0.5  # sea ice thickness [m]
+# snow fall modulator, =1 represent the standard values cfr. paper [Adim]
+snow_fall_mod = 1
 h_w = 50  # depth of the ocean mix layer [m]
 M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
@@ -152,11 +154,11 @@ def snow_fall(day):
         during these three different periods."""
     doy = day % 365
     if doy >= 232 and doy <= 304:  # between 20 August and October (included)
-        return (0.3/(304-232))*2
+        return (0.3/(304-232))*snow_fall_mod
     elif doy >= 305 or doy <= 120:  # between November and April (included)
-        return (0.05/(365-305+120))*2
+        return (0.05/(365-305+120))*snow_fall_mod
     elif doy >= 121 and doy <= 151:  # May
-        return (0.05/(151-121))*2
+        return (0.05/(151-121))*snow_fall_mod
     else:
         return 0
 
@@ -467,6 +469,7 @@ def ctrl_sim():
     axs[0, 0].plot(time_range_years, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
     axs[0, 0].set_xlabel('Year')
+    # axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50])
     axs[0, 0].set_ylabel('Thickness [m]')
     axs[0, 0].grid()
 

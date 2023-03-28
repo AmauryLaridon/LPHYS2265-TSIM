@@ -35,6 +35,7 @@ alb_wat = 0.1  # albedo of water [Adim]
 # snow fall modulator,=1 represent the standard values [Adim]
 snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
+snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 h_w = 50  # depth of the ocean mix layer [m]
 M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
@@ -162,7 +163,7 @@ def E_net_surf(efm):
 
 def snow_fall(day):
     """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
-        30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall 
+        30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall
         during these three different periods. Un snow_fall_mod coefficient is used to linearly multiply the snow fall for other simulations
         settings."""
     doy = day % 365
@@ -207,6 +208,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
     T_w = T_bo
     T_mix_lay_ar[0] = T_w
+
+    h_w_ar = np.zeros(N_days)
 
     time_range = range(0, integration_range)  # integration range in days
 
@@ -307,6 +310,27 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             delta_h_s = snow_gain - snow_lost
             h_s[day] = h_s[day-1] + delta_h_s
 
+            ## Testing for snow ice formation after snow fall and possible melting of snow and ice and ice formation##
+            if snow_ice_form == True:
+                h_w = (h_i[day]*rho_i + h_s[day]*rho_s)/rho_w
+                h_w_ar[day] = h_w
+                if h_i[day] > 0 and h_s[day] > 0:
+
+                    # In the case where there is a layer of ice and still a layer of snow above at the end of the day we will add the possibility to have
+                    # snow-ice formation. We compute the snow-ice interface and wheter it is above or below sea-level using the fundamental law of static
+                    # with the weight force and the Archimede's force.
+                    # compute h_w the height of the water volume displaced [m]
+
+                    if h_w > h_i[day]:
+                        # If the height of the water volume displaced is superior than the thickness of the ice then all the layer of ice is below sea level
+                        # and there is a height of h_w-h_i[day] of snow than can be froozen to ice.
+                        h_snow_below_sea = h_w-h_i[day]  # [m]
+                        h_s[day] = h_s[day] - h_snow_below_sea
+                        if h_s[day] < 0:
+                            # if there not enough snow thickness we define de snow thickness as beeing equal to zero to keep physical quantities.
+                            h_s[day] = 0
+                        h_i[day] = h_i[day] + h_snow_below_sea
+
         if ice_cover == False:
             # set the latest ice thickness to 0 in order to have physical value.
             h_i[day-1] = 0
@@ -350,7 +374,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         print("Sea ice thickness at the end of Day {} = {:.2f} m".format(
             day, h_i[day]))
         print("------------------------------------------------------------------")
-    return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range
+    return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 
 
 ########################################### Cases of Simulations ######################################################
@@ -469,14 +493,33 @@ def ctrl_sim_without_snow():
 def ctrl_sim():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=5, snow=True, h_s0=0)
+
     ### Display ###
-    ## Ice thickness evolution plot ##
     Q_w = 5
     h_i0 = 0.1
     h_s0 = 0
     time_range_years = [time_range[i]/365 for i in range(N_days)]
+
+    ## Submerged height plot ##
+
+    if snow_ice_form == True:
+        plt.plot(time_range_years, h_w_ar, label=r"$h_w$")
+        plt.plot(time_range_years, h_ice, label=r"$h_{ice}$")
+        plt.title(
+            'Submerged height and ice thickness evolution\n' +
+            r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(
+                alb_sur, Q_w, h_i0, h_s0, N_years), size=22)
+        plt.xlabel("Year", size=20)
+        plt.ylabel("Height [m]", size=20)
+        plt.legend(fontsize=18)
+        plt.grid()
+        plt.savefig(save_dir + "submerged_height.png", dpi=300)
+        # plt.show()
+        plt.clf()
+
+    ## Control Subplot ##
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
@@ -530,5 +573,5 @@ def ctrl_sim():
 
 if __name__ == "__main__":
     # first_and_mult_ice()
-    ctrl_sim_without_snow()
+    # ctrl_sim_without_snow()
     ctrl_sim()

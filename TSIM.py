@@ -116,9 +116,7 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim):
 
 
 def E_gain_mixed_layer(T_w, day, Q_w):
-    """ Compute the free water energy gain in one day. [J/m^2]
-    Incoming:  Q_sol: solar flux,  Q_nsol : non solar flux,  Q_w: flux from deep water
-    Outgoing: Blackbody radiation with temperature T_w"""
+    """ Compute the free water energy gain in one day. [J/m^2]"""
     E_gain_mix_lay = (solar_flux(day)*(1-alb_wat) +
                       non_solar_flux(day) + Q_w - epsilon*sigma*(T_w**4))*sec_per_day
     return E_gain_mix_lay
@@ -166,7 +164,7 @@ def snow_fall(day):
     """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
         30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall 
         during these three different periods. Un snow_fall_mod coefficient is used to linearly multiply the snow fall for other simulations
-        settings"""
+        settings."""
     doy = day % 365
     if doy >= 232 and doy <= 304:  # between 20 August and October (included)
         return (0.3/(304-232))*snow_fall_mod

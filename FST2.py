@@ -1,7 +1,7 @@
 ############################################################################################################################
 # Freeing Surface Temperature (FST)
 # Author : Amaury Laridon
-# Course : LPHYS2269 - Remote Sensing of Climate Change
+# Course : LPHYS2265 - Sea ice ocean interactions in polar regions
 # Goal : Second part of the TSIM model. Modelisation of the evolution of sea-ice thickness with a dynamic surface temperature
 #        Free Surface Temperature (FST)
 #        More information on the GitHub Page of the project : https://github.com/AmauryLaridon/TSIM.git
@@ -42,14 +42,16 @@ figure = plt.figure(figsize=(16, 10))
 
 
 def solar_flux(day):
-    """Definition of the atmospheric solar heat flux Q_sol for a given day in the year. Conversion from Fletcher(1965)"""
+    """Definition of the atmospheric solar heat flux Q_sol for a given day in the year.
+    Conversion from Fletcher(1965)"""
     doy = day % 365
     Q_sol = 314*np.exp((-(doy-164)**2)/4608)
     return Q_sol
 
 
 def non_solar_flux(day):
-    """Definition of the atmospheric non solar heat flux Q_nsol for a given day in the year. Conversion from Fletcher(1965)"""
+    """Definition of the atmospheric non solar heat flux Q_nsol for a given day in the year.
+    Conversion from Fletcher(1965)"""
     doy = day % 365
     Q_nsol = 118*np.exp((-0.5*(doy-206)**2)/(53**2)) + 179
     return Q_nsol
@@ -58,8 +60,9 @@ def non_solar_flux(day):
 
 
 def surface_temp(h, day):
-    """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
-    heat fluxes and return a single value for a given day and a given thickness of the ice."""
+    """Compute the evolution of the surface temperature with respect to the variation of 
+    the atmospheric heat fluxes and return a single value for a given day and a 
+    given thickness of the ice."""
 
     # finding the surface temperature using roots function from numpy. As required in 2.1.2 temperature is not
     # physically sensible for ice in summer so we cap the surface temperature to 273,15°K.
@@ -213,10 +216,13 @@ def exo2_2_surf_temp():
 
     ##### 2.2.1 #####
     ### Instancing ###
-    T_su = surface_temp(h=h)
-    year = np.arange(Day_0, N_days + 1)
+    time_range = range(0, N_days)
+    T_su_ar = np.zeros(N_days)
+    for day in range(N_days):
+        T_su, efm = surface_temp(h, day)
+        T_su_ar[day] = T_su
     ### Display ###
-    plt.plot(year, T_su - kelvin, label="T_su")
+    plt.plot(time_range, T_su_ar - kelvin, label="T_su")
     plt.title("Evolution of the surface temperature", size=26)
     plt.xlabel("Days", size=20)
     plt.ylabel("T_su [°C]", size=20)

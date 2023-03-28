@@ -1,7 +1,7 @@
 ############################################################################################################################
 # Ice Growth with Constant Temperature (IGCT)
 # Author : Amaury Laridon
-# Course : LPHYS2269 - Remote Sensing of Climate Change
+# Course : LPHYS2265 - Sea ice ocean interactions in polar regions
 # Goal : First part of the TSIM model. Modelisation of the evolution of sea-ice thickness using constant
 #        temperature and the Stefan's law. An ocean heat flux can be simulate.
 #        More information on the GitHub Page of the project : https://github.com/AmauryLaridon/TSIM.git
@@ -30,7 +30,7 @@ figure = plt.figure(figsize=(16, 10))
 ######################################## 1 Ice growth with constant temperature ############################################
 ##################################################### Model ################################################################
 
-### Functions of the model ###
+### Energy Fluxes ###
 
 
 def fourier_cond_flux(h_i, snow, h_s):
@@ -59,6 +59,8 @@ def E_net_bottom(ice_thick,  ocean_heat, Q_w, snow, h_s, T_su=T_su, T_bo=T_bo):
             ice_thick, snow, h_s) * sec_per_day
         E_net_bot = E_loss_through_ice
     return E_net_bot
+
+### Ice Thickness Model ###
 
 
 def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s, integration_range=N_days, T_su=T_su, T_bo=T_bo):
@@ -111,7 +113,7 @@ def stefan_law(h_i0, integration_range=N_days, T_su=T_su, T_bo=T_bo):
         H_t[day] = h_day
     return H_t, time_range
 
-##################################################### Cases of simulation ############################################################
+##################################################### Simulation's Testing ############################################################
 
 
 def exo_1_1_Stef_law():

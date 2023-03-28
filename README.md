@@ -3,6 +3,9 @@
 
 GitHub made for the Project : "**Built your own thermodynamics sea ice model**" of the LPHYS2265 class. 
 
+![Fig1](https://user-images.githubusercontent.com/58213378/228291694-4d7dd1dd-fce4-4324-b65f-39ff3676c31d.png)
+
+
 ### Organization of the files 
 
 The pdf containing the instructions for this project are the *Exercise_part_1.pdf, Exercise_part_2.pdf files*. The *Semtner_JPO76_icemodel.pdf* is the paper of Semtner and al (1976) usefull for this model of sea ice. Thoses files can be found in the *Instructions* folder. **A more detailed presentation of the three models is given in Projet Report/TSIM Presentation**

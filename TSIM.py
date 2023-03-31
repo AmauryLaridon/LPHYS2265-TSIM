@@ -155,6 +155,7 @@ def E_net_surf(efm):
     """ Compute the energy gain at the surface of the sea ice in one day due to a non-equilibrium between the solar and non-solar
     flux incoming, the flux coming from the water through the ice and the ice blackbody radiation. This disequilibrium
     is because the ice can't go over 273.15K without melting. This energy will hence be used to melt the ice during summer.
+    Function builded with the help of Augustin Lambotte. 
     [J/m^2]
     """
     E_net_surf = efm * sec_per_day
@@ -165,7 +166,7 @@ def snow_fall(day):
     """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
         30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall
         during these three different periods. Un snow_fall_mod coefficient is used to linearly multiply the snow fall for other simulations
-        settings."""
+        settings. Function builded with the help of Augustin Lambotte."""
     doy = day % 365
     if doy >= 232 and doy <= 304:  # between 20 August and October (included)
         return (0.3/(304-232))*snow_fall_mod

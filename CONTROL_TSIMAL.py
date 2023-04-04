@@ -1,5 +1,5 @@
 ############################################################################################################################
-# Thermodynamic Sea Ice Model of Amaury Laridon(TSIMAL)
+# Thermodynamic Sea Ice Model of Amaury Laridon (TSIMAL)
 # Author : Amaury Laridon
 # Course : LPHYS2265 - Sea ice ocean interactions in polar regions
 # Goal : Final version of the TSIM model use for control simulation and outputs for Part 2 of the project.
@@ -12,9 +12,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
-############################################# 2 Freeing surface temperature ################################################
 ####################################################### Parameters #########################################################
-### Physical Constant ###
+
+################################ Physical Constant #######################################
 epsilon = 0.99  # surface emissivity [Adim]
 sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]
 kelvin = 273.15  # Conversion form Celsius to Kelvin [Adim]
@@ -26,7 +26,8 @@ rho_i = 917  # sea ice density [kg/m³]
 rho_s = 330  # snow density [kg/m³]
 c = 4000  # heat capacity of water [J/(kg.°K)]
 rho_w = 1025  # density of sea water [kg/m³]
-### Simulation parameters ###
+
+############################## Simulation Parameters ######################################
 N_years = 50  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
 h = 0.5  # sea ice thickness [m]
@@ -41,11 +42,17 @@ M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
 T_bo = -1.8 + kelvin
 Day_0 = 1  # set the first day of the simulation [Adim]
-### Display Parameters ###
+
+################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
 save_dir = "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Figures/"
 figure = plt.figure(figsize=(16, 10))
-############################################## Model of Surface Temperature #################################################
+
+############################################################################################################################
+##################################################### TSIMAL MODEL #########################################################
+############################################################################################################################
+
+############################################## Model of Surface Temperature ##############################################
 
 ######################### Parameterization of atmospheric fluxes ####################################
 
@@ -113,7 +120,7 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim):
 
     return T_su, efm
 
-########################################### Model of the Ocean Mix Layer ####################################################
+########################################### Model of the Ocean Mix Layer ##################################################
 
 
 def E_gain_mixed_layer(T_w, day, Q_w):
@@ -122,7 +129,25 @@ def E_gain_mixed_layer(T_w, day, Q_w):
                       non_solar_flux(day) + Q_w - epsilon*sigma*(T_w**4))*sec_per_day
     return E_gain_mix_lay
 
-########################################### Model of Sea ice thickness ######################################################
+################################################ Model of snow fall #######################################################
+
+
+def snow_fall(day):
+    """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
+        30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall
+        during these three different periods. Un snow_fall_mod coefficient is used to linearly multiply the snow fall for other simulations
+        settings. Function builded with the help of Augustin Lambotte."""
+    doy = day % 365
+    if doy >= 232 and doy <= 304:  # between 20 August and October (included)
+        return (0.3/(304-232))*snow_fall_mod
+    elif doy >= 305 or doy <= 120:  # between November and April (included)
+        return (0.05/(365-305+120))*snow_fall_mod
+    elif doy >= 121 and doy <= 151:  # May
+        return (0.05/(151-121))*snow_fall_mod
+    else:
+        return 0
+
+########################################### Model of Sea ice thickness ####################################################
 
 
 def fourier_cond_flux(h_i, T_su, snow, h_s):
@@ -160,22 +185,6 @@ def E_net_surf(efm):
     """
     E_net_surf = efm * sec_per_day
     return E_net_surf
-
-
-def snow_fall(day):
-    """ Function that modelise the snowfall in [m]. The values are given in the Exercise_part_1.pdf file available on the GitHub.
-        30 cm between 20 August and October, 5 cm between November and april, 5 cm in May. We use an uniform distribution of those snowfall
-        during these three different periods. Un snow_fall_mod coefficient is used to linearly multiply the snow fall for other simulations
-        settings. Function builded with the help of Augustin Lambotte."""
-    doy = day % 365
-    if doy >= 232 and doy <= 304:  # between 20 August and October (included)
-        return (0.3/(304-232))*snow_fall_mod
-    elif doy >= 305 or doy <= 120:  # between November and April (included)
-        return (0.05/(365-305+120))*snow_fall_mod
-    elif doy >= 121 and doy <= 151:  # May
-        return (0.05/(151-121))*snow_fall_mod
-    else:
-        return 0
 
 
 def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=T_bo, limit_temp=temp_lim):
@@ -381,9 +390,9 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 
 
-########################################### Cases of Simulations ######################################################
-
-##### 3 Addition of Surface Ocean and Snow #####
+########################################################################################################################
+############################################## CONTROL SIMULATIONS #####################################################
+########################################################################################################################
 
 def first_and_mult_ice():
     ##### Settings for ice-free conditions #####
@@ -576,7 +585,7 @@ def ctrl_sim():
     plt.clf()
 
 ########################################################################################################################
-########################################### 3. Control Experiment ######################################################
+########################################### TUNING AND PROJECTIONS #####################################################
 ########################################################################################################################
 
 ################################################ Analysis tools ########################################################

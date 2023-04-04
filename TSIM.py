@@ -210,6 +210,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     T_w = T_bo
     T_mix_lay_ar[0] = T_w
 
+    # array collecting the height of the volume of water displaced by the volume of ice and snow
     h_w_ar = np.zeros(N_days)
 
     time_range = range(0, integration_range)  # integration range in days
@@ -385,7 +386,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
 def first_and_mult_ice():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
+    h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range, h_w = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
@@ -431,7 +432,7 @@ def first_and_mult_ice():
 def ctrl_sim_without_snow():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##

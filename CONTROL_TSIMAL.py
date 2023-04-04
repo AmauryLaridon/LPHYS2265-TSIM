@@ -42,6 +42,8 @@ M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
 T_bo = -1.8 + kelvin
 Day_0 = 1  # set the first day of the simulation [Adim]
+# factor which multiplies thermal conductivities of ice and snow for tuning [Adim]
+gamma_SM = 0.996
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -86,7 +88,8 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim):
         # As required in 2.1.2 temperature is not
         # physically sensible for ice in summer so we cap the surface temperature to 273,15°K.
         if h_i > 0:
-            k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+            k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
+                (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
                                           T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]])
         else:
@@ -95,7 +98,8 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim):
     else:
         # Case when we dont limitate the surface temperature to remains below or egal to 0°C anymore.
         if h_i > 0:
-            k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+            k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
+                (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
                              T_bo + solar_flux(day) * (1-alb_sur) + non_solar_flux(day)]).real[3]
         else:
@@ -105,7 +109,8 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim):
 
     def net_surf_flux(h_i, h_s, day, T_su):
         """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
-        k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+        k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
+            (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
         nsf = solar_flux(day)*(1-alb_sur) + non_solar_flux(day) - \
             epsilon*sigma*(T_su**4) - k_eff*(T_su - T_bo)
         return nsf
@@ -154,9 +159,10 @@ def fourier_cond_flux(h_i, T_su, snow, h_s):
     """Computation of the conductive heat flux Q_c trough the ice using the Fourier-Fick's law (upward positive)
     [W/m^2]"""
     if snow == False:
-        Q_c = ((T_bo - T_su)/(h_i))*ki
+        Q_c = ((T_bo - T_su)/(h_i))*(ki*gamma_SM)
     else:
-        k_eff = (ki*ks)/(ki * h_s + ks * h_i)  # [W/m²/K]
+        k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
+            (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
         Q_c = (T_bo - T_su)*k_eff  # [W/m²]
     print("Fourier-Thick conductive flux = {:.2f} W/m²".format(Q_c))
     return Q_c

@@ -30,7 +30,7 @@ rho_w = 1025  # density of sea water [kg/m³]
 N_years = 50  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
 h = 0.5  # sea ice thickness [m]
-alb_sur = 0.8  # surface albedo [Adim]
+alb_sur = 0.77  # surface albedo [Adim]
 alb_wat = 0.1  # albedo of water [Adim]
 # snow fall modulator,=1 represent the standard values [Adim]
 snow_fall_mod = 1
@@ -155,7 +155,7 @@ def E_net_surf(efm):
     """ Compute the energy gain at the surface of the sea ice in one day due to a non-equilibrium between the solar and non-solar
     flux incoming, the flux coming from the water through the ice and the ice blackbody radiation. This disequilibrium
     is because the ice can't go over 273.15K without melting. This energy will hence be used to melt the ice during summer.
-    Function builded with the help of Augustin Lambotte. 
+    Function builded with the help of Augustin Lambotte.
     [J/m^2]
     """
     E_net_surf = efm * sec_per_day
@@ -181,8 +181,9 @@ def snow_fall(day):
 def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=T_bo, limit_temp=temp_lim):
     """Computation of the evolution of the sea ice and snow thickness using Stefan's law.
     An option gives the possibility to add an Oceanic heat flux and a layer of snow.
-    This function returns an array with the sea ice thickness, snow thickness, surface temperature, mixed layer temperature and
-    and an array with the time of integration usefull for plotting"""
+    This function returns an array with the sea ice thickness, snow thickness, surface temperature, mixed layer temperature,
+    an array with the time of integration usefull for plotting, an array with the height of the volume of water displaced 
+    by the volume of ice and snow and the number of year needed to obtain equilibrium"""
 
     ##### Output Simulation Settings #####
     print("------------------------------------------------------------------")
@@ -209,8 +210,9 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
     T_w = T_bo
     T_mix_lay_ar[0] = T_w
-
+    # array that stored the height of the volume of water displaced by the volume of ice and snow [m]
     h_w_ar = np.zeros(N_days)
+    T_eq = 0  # time in days needed to obtain equilibrium in the ice thickness
 
     time_range = range(0, integration_range)  # integration range in days
 
@@ -375,6 +377,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         print("Sea ice thickness at the end of Day {} = {:.2f} m".format(
             day, h_i[day]))
         print("------------------------------------------------------------------")
+
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 
 
@@ -385,7 +388,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
 def first_and_mult_ice():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range = ice_thick(
+    h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
@@ -431,7 +434,7 @@ def first_and_mult_ice():
 def ctrl_sim_without_snow():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=False, h_s0=0)
     ### Display ###
     ## Ice thickness evolution plot ##
@@ -492,6 +495,7 @@ def ctrl_sim_without_snow():
 
 
 def ctrl_sim():
+
     ##### Settings for ice-free conditions #####
     ### Instancing ###
     h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
@@ -571,8 +575,226 @@ def ctrl_sim():
     # plt.show()
     plt.clf()
 
+########################################################################################################################
+########################################### 3. Control Experiment ######################################################
+########################################################################################################################
+
+################################################ Analysis tools ########################################################
+
+
+def month_mean_v1(h):
+    """ NOT WORKING ! Given the array of the daily thickness of a layer (snow or ice) for one year returns the means for every month 
+        of that value. A small falsification is made we consider that the 11 firsts month have a length of 31 days
+        and the last month of 24 days to get a full year of 365 days. A more accurate computation can be 
+        done by considering the exact number of days per month in the calendar. """
+    nbr_month = 12
+    N_days_per_month_1 = 31
+    N_days_per_month_2 = 24
+    h_mean_month_ar = np.zeros(nbr_month)
+    for month in range(nbr_month):
+        h_sum = 0
+        print(h_mean_month_ar[month])
+        if month == nbr_month:
+            for day in range(N_days_per_month_2):
+                h_sum = 0
+                h_sum += h[day]
+            h_mean_month = h_sum/N_days_per_month_2
+        else:
+            for day in range(N_days_per_month_1):
+
+                h_sum += h[day]
+
+            h_mean_month = h_sum/N_days_per_month_1
+
+        h_mean_month_ar[month] = h_mean_month
+
+    return h_mean_month_ar
+
+
+def month_mean_v2(h):
+    """Given the array of the daily thickness of a layer(snow or ice) for one year returns the means for every month
+    of that value."""
+
+    h_mean_month_ar = np.zeros(12)
+
+    h_sum = 0
+    for day in range(0, 31):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[0] = h_mean
+
+    h_sum = 0
+    for day in range(31, 59):
+        h_sum += h[day]
+    h_mean = h_sum/28
+    h_mean_month_ar[1] = h_mean
+
+    h_sum = 0
+    for day in range(59, 90):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[2] = h_mean
+
+    h_sum = 0
+    for day in range(90, 120):
+        h_sum += h[day]
+    h_mean = h_sum/30
+    h_mean_month_ar[3] = h_mean
+
+    h_sum = 0
+    for day in range(120, 151):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[4] = h_mean
+
+    h_sum = 0
+    for day in range(151, 181):
+        h_sum += h[day]
+    h_mean = h_sum/30
+    h_mean_month_ar[5] = h_mean
+
+    h_sum = 0
+    for day in range(181, 212):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[6] = h_mean
+
+    h_sum = 0
+    for day in range(212, 243):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[7] = h_mean
+
+    h_sum = 0
+    for day in range(243, 273):
+        h_sum += h[day]
+    h_mean = h_sum/30
+    h_mean_month_ar[8] = h_mean
+
+    h_sum = 0
+    for day in range(273, 304):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[9] = h_mean
+
+    h_sum = 0
+    for day in range(304, 334):
+        h_sum += h[day]
+    h_mean = h_sum/30
+    h_mean_month_ar[10] = h_mean
+
+    h_sum = 0
+    for day in range(334, 365):
+        h_sum += h[day]
+    h_mean = h_sum/31
+    h_mean_month_ar[11] = h_mean
+
+    return h_mean_month_ar
+
+
+def err_annual_mean_thick(h, mu71):
+    """ Compute the annual mean thickness for TSIMAL model output and for MU71 serie and compute the absolute error 
+        and the relative error between the two."""
+    model_annual_mean_thick = sum(h)/12
+    mu71_annual_mean_thick = sum(mu71)/12
+    err_abs = model_annual_mean_thick-mu71_annual_mean_thick
+    err_rel = ((model_annual_mean_thick-mu71_annual_mean_thick) /
+               mu71_annual_mean_thick)*100
+    return model_annual_mean_thick, mu71_annual_mean_thick, err_abs, err_rel
+
+
+hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
+           3.14, 2.96, 2.78, 2.73, 2.71, 2.72, 2.75]  # Target seasonal cycle of ice thickness of MU71
+
+########################################### No Tuning Comparaison ######################################################
+
+
+def no_tuning_comp():
+    """ Simulation and first comparaison between TSIM model and MU71 without any tuning. 
+        alb = 0.77, Q_W = 2W/m² and snow == True"""
+
+    ### Instancing ###
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
+        h_i0=0.1, ocean_heat=True, Q_w=2, snow=True, h_s0=0)
+
+    ### Display ###
+    time_range_years = [time_range[i]/365 for i in range(N_days)]
+    Q_w = 2
+    h_s0 = 0
+    h_i0 = 0.1
+
+    ## Ice thickness evolution plot ##
+
+    plt.plot(time_range_years, h_ice, label="h_ice")
+    plt.title('TSIM Model with snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(
+        alb_sur, Q_w, h_i0, h_s0, N_years), size=22)
+    plt.xlabel("Year", size=20)
+    plt.ylabel("Ice Thickness [m]", size=20)
+    plt.legend(fontsize=18)
+    plt.grid()
+    # plt.savefig(save_dir + "no_tuning.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ## Last year ice thickness evolution subplot comparaison with MU71 ##
+
+    fig, axs = plt.subplots(1, 2)
+    fig.suptitle('TSIMAL Last year ice thickness evolution comparaison with MU71\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(
+        alb_sur, Q_w, h_i0, h_s0, N_years))
+
+    hi_last_year = np.zeros(365)
+    hi_last_year = h_ice[-365:]
+
+    hi_month_mean_last_year = month_mean_v2(hi_last_year)
+
+    # axs[0].plot(np.arange(1, 366), hi_last_year, label=r"$h_{ice}$")
+    axs[0].plot(np.arange(1, 13), hi_month_mean_last_year,
+                label=r"$hi_{TSIMAL}$")
+    axs[0].set_title('TSIMAL Model')
+    axs[0].set_xlabel('Month')
+    axs[0].set_ylabel('Thickness [m]')
+    axs[0].set_xticks([2, 4, 6, 8, 10, 12])
+    axs[0].grid()
+
+    axs[1].plot(np.arange(1, 13), hi_MU71, label=r"$hi_{M71}$")
+    axs[1].set_title('Maykut and Untersteiner (1971)')
+    axs[1].set_xlabel('Month')
+    axs[1].set_ylabel('Thickness [m]')
+    axs[1].set_xticks([2, 4, 6, 8, 10, 12])
+    axs[1].grid()
+
+    fig.tight_layout()
+    # plt.savefig(save_dir + "no_tuning_comp.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ## Same plot ##
+
+    plt.plot(np.arange(1, 13), hi_month_mean_last_year, label=r"$hi_{TSIMAL}$")
+    plt.plot(np.arange(1, 13), hi_MU71, label=r"$hi_{M71}$")
+    plt.title('TSIMAL last year ice thickness evolution comparaison with MU71\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(
+        alb_sur, Q_w, h_i0, h_s0, N_years), size=11)
+    plt.xlabel("Month", size=10)
+    plt.ylabel("Ice Thickness [m]", size=10)
+    plt.legend(fontsize=8)
+    plt.grid()
+    plt.savefig(save_dir + "no_tuning_comp.png", dpi=300)
+    fig.tight_layout()
+    # plt.show()
+    plt.clf()
+
+    ### Computation of the error on annual mean thickness ###
+    mean_TSIMAL, mean_mu71, err_abs, err_rel = err_annual_mean_thick(
+        hi_month_mean_last_year, hi_MU71)
+
+    print("Mean ice thickness TSIMAL = {:.2f}m".format(mean_TSIMAL))
+    print("Mean ice thickness MU71 = {:.2f}m".format(mean_mu71))
+    print("Absolute Error = {:.2f}m".format(err_abs))
+    print("Relative Error = {:.2f}%".format(err_rel))
+
 
 if __name__ == "__main__":
     # first_and_mult_ice()
     # ctrl_sim_without_snow()
-    ctrl_sim()
+    # ctrl_sim()
+    no_tuning_comp()

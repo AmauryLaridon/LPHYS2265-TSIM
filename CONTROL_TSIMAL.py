@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import scipy.optimize as opt
 from sklearn.metrics import mean_squared_error
 ####################################################### Parameters #########################################################
-
+qsqghsaqjsg
 ################################ Physical Constant #######################################
 
 sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]
@@ -210,12 +210,12 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     """Computation of the evolution of the sea ice and snow thickness using Stefan's law.
     An option gives the possibility to add an Oceanic heat flux and a layer of snow.
     This function returns an array with the sea ice thickness, snow thickness, surface temperature, mixed layer temperature,
-    an array with the time of integration usefull for plotting, an array with the height of the volume of water displaced 
+    an array with the time of integration usefull for plotting, an array with the height of the volume of water displaced
     by the volume of ice and snow and the number of year needed to obtain equilibrium"""
 
     ##### Output Simulation Settings #####
     print("------------------------------------------------------------------")
-    print("             TSIM SEA ICE AND SNOW THICKNESS MODEL")
+    print("            TSIMAL SEA ICE AND SNOW THICKNESS MODEL")
     print("------------------------------------------------------------------")
     print(
         "Evolution of the sea ice thickness using numerical Stefan's law.\nintegration range = {} days, dyn_albedo = {}, T_bo = {:.2f} °C,\nh_i0 = {:.2f} m, ocean_heat_flux = {}, Q_w = {:.2f} W/m²\nsnow = {}, h_s0 = {:.2f} m".format(N_days, dyn_alb, T_bo-kelvin, h_i0, ocean_heat, Q_w, snow, h_s0))
@@ -257,19 +257,23 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
                 day, h_s[day-1]))
 
         ### Definition alb_sur ###
+        if dyn_alb == True:
+            # If the dynamic surface albedo option is True we consider the differents values that it may takes.
+            # If dyn_alb == False we remains with the standard values define in the parameters above.
+            if h_s[day-1] > h_s_crit:
+                # If the snow thickness is superior than the critical value, the surface albedo is the one of the dry snow
+                alb_sur = alb_dry_snow
 
-        if h_s[day-1] > h_s_crit:
-            # If the snow thickness is superior than the critical value, the surface albedo is the one of the dry snow
-            alb_sur = alb_dry_snow
+            elif h_s[day-1] == 0:
+                # if there is no snow in the simulation the albedo of the surface is the one of the bare ice
+                alb_sur = alb_bare_ice
 
-        elif h_s[day-1] == 0:
-            # if there is no snow in the simulation the albedo of the surface is the one of the bare ice
-            alb_sur = alb_bare_ice
-
-        elif h_s[day-1] < 10 and h_s[day-1] > 0:
-            # slope of the linear relation for the surface albedo between zero thickness of snow and the critical value giving a surface albedo between the bare ice value and the dry snow value
-            m = (alb_dry_snow - alb_bare_ice)/h_s_crit
-            alb_sur = m*h_s[day-1] + alb_bare_ice
+            elif h_s[day-1] < 10 and h_s[day-1] > 0:
+                # slope of the linear relation for the surface albedo between zero thickness of snow and the critical value giving a surface albedo between the bare ice value and the dry snow value
+                m = (alb_dry_snow - alb_bare_ice)/h_s_crit
+                alb_sur = m*h_s[day-1] + alb_bare_ice
+        else:
+            alb_sur = 0.77
 
         ### Ice Cover testing condition ###
         # Test if there is some ice cover or not. If they are an ice cover we perform the same computation as before,
@@ -630,9 +634,9 @@ def ctrl_sim():
 
 
 def month_mean_v1(h):
-    """ NOT WORKING ! Given the array of the daily thickness of a layer (snow or ice) for one year returns the means for every month 
+    """ NOT WORKING ! Given the array of the daily thickness of a layer (snow or ice) for one year returns the means for every month
         of that value. A small falsification is made we consider that the 11 firsts month have a length of 31 days
-        and the last month of 24 days to get a full year of 365 days. A more accurate computation can be 
+        and the last month of 24 days to get a full year of 365 days. A more accurate computation can be
         done by considering the exact number of days per month in the calendar. """
     nbr_month = 12
     N_days_per_month_1 = 31
@@ -740,7 +744,7 @@ def month_mean_v2(h):
 
 
 def err_annual_mean_thick(h, mu71):
-    """ Compute the annual mean thickness for TSIMAL model output and for MU71 serie and compute the absolute error 
+    """ Compute the annual mean thickness for TSIMAL model output and for MU71 serie and compute the absolute error
         and the relative error between the two."""
     model_annual_mean_thick = sum(h)/12
     mu71_annual_mean_thick = sum(mu71)/12
@@ -752,9 +756,18 @@ def err_annual_mean_thick(h, mu71):
 
 def MSE_annual_mean_thick(h, mu71):
     """ Compute the Mean Squared Error for TSIMAL model output regarding the MU71 serie. The MSE will be used as a diagnostic tool
-        for the efficienty of TSIMAL to reproduce the MU71 serie. Obviously the goal is to minimize MSE with tuning."""
+        for the efficienty of TSIMAL to reproduce the MU71 serie. The goal is to minimize MSE with tuning."""
     mse = mean_squared_error(h, mu71)
     return mse
+
+
+def cor_annual_mean_thick(h, mu71):
+    """ Computes the correlation coefficient for TSIMAL model output regarding the MU71 serie. The value r will be used as a diagnostic
+    tool for the efficienty of TSIMAL to reproduce the MU71 serie. The goal is to have the highest coefficient r in absolute value
+    with tuning."""
+    corr_matrix = np.corrcoef(h, mu71)
+    r = corr_matrix[0, 1]
+    return r
 
 
 hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
@@ -764,7 +777,7 @@ hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
 
 
 def tuning_comp():
-    """ Simulation and first comparaison between TSIMAL model and MU71 without any tuning. 
+    """ Simulation and first comparaison between TSIMAL model and MU71 without any tuning.
         alb = 0.77, Q_W = 2W/m² and snow == True"""
 
     ### Instancing ###
@@ -795,13 +808,14 @@ def tuning_comp():
     fig, axs = plt.subplots(1, 2)
     fig.suptitle('TSIMAL Last year ice thickness evolution comparaison with MU71\n' + r'$dyn_alb =$ {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years, $\gamma$ = {}'.format(dyn_alb,
                                                                                                                                                                                                  Q_w, h_i0, h_s0, N_years, gamma_SM))
-
+    # Storing only the last year value of the sea ice thickness #
     hi_last_year = np.zeros(365)
     hi_last_year = h_ice[-365:]
 
     hi_month_mean_last_year = month_mean_v2(hi_last_year)
 
-    # axs[0].plot(np.arange(1, 366), hi_last_year, label=r"$h_{ice}$")
+    # Plotting #
+
     axs[0].plot(np.arange(1, 13), hi_month_mean_last_year,
                 label=r"$hi_{TSIMAL}$")
     axs[0].set_title('TSIMAL Model')
@@ -842,6 +856,10 @@ def tuning_comp():
         hi_month_mean_last_year, hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
     mse = MSE_annual_mean_thick(hi_month_mean_last_year, hi_MU71)
+    ### Computation of the MSE on annual mean thickness ###
+    r = cor_annual_mean_thick(hi_month_mean_last_year, hi_MU71)
+
+    ### Output ###
     print("--------------------TSIMAL & MU71 Comparison----------------------")
     print("------------------------------------------------------------------")
     print('dyn_alb = {}, Q_W = {}W/m^2, gamma = {}, beta = {}'.format(dyn_alb,
@@ -857,6 +875,7 @@ def tuning_comp():
     print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))
     print("MSE(TSIMAL,MU71) = {:.3f}".format(mse))
+    print("r(TSIMAL,MU71) = {:.3f}".format(r))
     print("------------------------------------------------------------------")
 
 

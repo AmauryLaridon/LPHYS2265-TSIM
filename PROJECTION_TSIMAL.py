@@ -57,7 +57,7 @@ epsilon = 0.99  # surface emissivity [Adim]
 dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
 i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 12
+lw_forcing = 6
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -258,6 +258,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     h_w_ar = np.zeros(N_days)
     T_eq = 0  # time in days needed to obtain equilibrium in the ice thickness
 
+    # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
+    T_w = T_bo
     time_range = range(0, integration_range)  # integration range in days
 
     ##### Dynamic Model ######
@@ -451,7 +453,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         print("------------------------------------------------------------------")
 
     data = np.column_stack((time_range, T_su_ar, h_i, h_s, T_mix_lay_ar))
-    np.savetxt(data_dir + 'PROJ_TSIMAL.txt', data, delimiter=" ", fmt='%s ')
+    np.savetxt(data_dir + 'PR' + str(lw_forcing) +
+               '_TSIMAL_full_data.txt', data, delimiter=" ", fmt='%s ')
 
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 
@@ -643,6 +646,12 @@ def ctrl_sim():
         h_i_mean[year] = np.mean(h_ice[day00:day99])
         T_su_min[year] = min(T_su[day00:day99])
 
+    ## Exporting yearly diagnostics data ##
+    yearly_diag = np.column_stack(
+        (np.arange(0, N_years), h_i_min, h_i_mean, h_i_max, h_s_max, T_su_min))
+    np.savetxt(data_dir + 'PR' + str(lw_forcing) +
+               '_TSIMAL.txt', yearly_diag, delimiter=" ", fmt='%s ')
+
     ### Display ###
     Q_w = 2
     h_i0 = 0.1
@@ -712,6 +721,66 @@ def ctrl_sim():
 
     fig.tight_layout()
     plt.savefig(save_dir + "PR" + str(lw_forcing) + "_TSIMAL.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ## Control Subplot Yearly diagnostics ##
+
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle(
+        r'Yearly diagnostics TSIMAL Projection with $\Delta Q = {}W/m^2$'.format(lw_forcing) + '\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
+
+    axs[0, 0].plot(np.arange(0, 100), h_i_max,
+                   label=r"$h_i^{max}$", linewidth=1)
+    axs[0, 0].plot(np.arange(0, 100), h_i_min,
+                   label=r"$h_i^{min}$", linewidth=1)
+    axs[0, 0].plot(np.arange(0, 100), h_i_mean,
+                   label=r"$h_i^{mean}$", linewidth=1)
+    axs[0, 0].set_title('Ice thickness')
+    axs[0, 0].set_xlabel('Year')
+    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    axs[0, 0].set_ylabel('Thickness [m]')
+    axs[0, 0].grid()
+    axs[0, 0].legend()
+
+    axs[0, 1].plot(np.arange(0, 100), h_s_max, label=r'$h_s^{max}$',
+                   color='c', linewidth=1)
+    axs[0, 1].set_title('Snow thickness')
+    axs[0, 1].sharex(axs[0, 0])
+    axs[0, 1].set_xlabel('Year')
+    axs[0, 1].grid()
+    axs[0, 1].legend()
+    # axs[0, 1].set_xlabel('Days')
+    # axs[0, 0].set_ylabel('Thickness [m]')
+
+    axs[1, 0].plot(np.arange(0, 100), T_su_min - kelvin, label=r'$T_{su}^{min}$',
+                   color='orange', linewidth=1)
+    axs[1, 0].set_title('Surface Temperature')
+    axs[1, 0].sharex(axs[0, 0])
+    axs[1, 0].set_xlabel('Year')
+    axs[1, 0].set_ylabel('Temperature [°C]')
+    axs[1, 0].grid()
+    axs[1, 0].legend()
+
+    axs[1, 1].plot(time_range_years, T_mix_lay - kelvin, label='T_w',
+                   color='green', linewidth=1)
+    axs[1, 1].set_title('Mix Layered Temperature')
+    axs[1, 1].sharex(axs[1, 0])
+    axs[1, 1].grid()
+    axs[1, 1].set_xlabel('Year')
+    # axs[1, 1].set_xlabel('Days')
+    # axs[1, 1].set_ylabel('Temperature [°K]')
+
+    # for ax in axs.flat:
+    #    ax.set(xlabel='Days', ylabel='Temperature [°K]')
+
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    # for ax in axs.flat:
+    #    ax.label_outer()
+
+    fig.tight_layout()
+    plt.savefig(save_dir + "PR" + str(lw_forcing) +
+                "_yearly_diag_TSIMAL.png", dpi=300)
     # plt.show()
     plt.clf()
 

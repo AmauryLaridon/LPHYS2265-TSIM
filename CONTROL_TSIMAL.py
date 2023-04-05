@@ -12,10 +12,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
+from sklearn.metrics import mean_squared_error
 ####################################################### Parameters #########################################################
 
 ################################ Physical Constant #######################################
-epsilon = 0.99  # surface emissivity [Adim]
+
 sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]
 kelvin = 273.15  # Conversion form Celsius to Kelvin [Adim]
 ki = 2.2  # sea ice thermal conductivity [W/m/K]
@@ -42,16 +43,20 @@ M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
 T_bo = -1.8 + kelvin
 Day_0 = 1  # set the first day of the simulation [Adim]
-# factor which multiplies thermal conductivities of ice and snow for tuning [Adim]
-gamma_SM = 1.04
 # critical value of the snow thickness that change the albedo regim. Used for tuning [m]
 h_s_crit = 0.1
-alb_dry_snow = 0.83  # albedo of dry snow [Adim]
-alb_bare_ice = 0.64  # albedo of bare ice [Adim]
-dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
-i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
+
+########## Tuning Parameters ##########
+# factor which multiplies thermal conductivities of ice and snow for tuning [Adim]
+gamma_SM = 1.04
 # part of the radiation reflected to space to compensate spurious melting following parametrisation of Semtner (1976)
 beta_SM = 0.0035
+alb_dry_snow = 0.83  # albedo of dry snow [Adim]
+alb_bare_ice = 0.64  # albedo of bare ice [Adim]
+epsilon = 0.99  # surface emissivity [Adim]
+dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
+i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
+
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -436,9 +441,11 @@ def first_and_mult_ice():
     ## Ice thickness evolution plot ##
     Q_w = 5
     h_s0 = 0
+    h_i0 = 0.1
+
     plt.plot(time_range, h_ice_free, label="h_ice")
-    plt.title('TSIM Ice thickness evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m², a layer of snow h_s0 = {:.2f}m\nalbedo = {}'.format(
-        N_days, Q_w, h_s0, alb_sur), size=22)
+    plt.title('TSIMAL Ice thickness evolution without snow\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years, $\gamma$ = {}'.format(dyn_alb,
+                                                                                                                                                                         Q_w, h_i0, h_s0, N_years, gamma_SM), size=22)
     plt.xlabel("Days", size=20)
     plt.ylabel("Ice Thickness [m]", size=20)
     plt.legend(fontsize=18)
@@ -449,8 +456,8 @@ def first_and_mult_ice():
     ## Temperature evolution plot ##
     plt.plot(time_range, T_su_ice_free - kelvin, label="T_su")
     plt.plot(time_range, T_mix_lay_ice_free - kelvin, label="T_mix")
-    plt.title('TSIM Temperature evolution for {} days\nwith oceanic heat flux Q_w = {:.2f}W/m², a layer of snow h_s0 = {:.2f}m\nalbedo = {}'.format(
-        N_days, Q_w, h_s0, alb_sur), size=22)
+    plt.title('TSIMAL Temperature evolution without snow\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years, $\gamma$ = {}'.format(dyn_alb,
+                                                                                                                                                                       Q_w, h_i0, h_s0, N_years, gamma_SM), size=22)
     plt.xlabel("Days", size=20)
     plt.ylabel("Temperature [°C]", size=20)
     plt.legend(fontsize=18)
@@ -487,7 +494,7 @@ def ctrl_sim_without_snow():
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
-        'TSIM Model without snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(alb_sur, Q_w, h_i0, h_s0, N_years))
+        'TSIMAL Model without snow\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
 
     axs[0, 0].plot(time_range_years, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
@@ -541,10 +548,10 @@ def ctrl_sim():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
     h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
-        h_i0=0.1, ocean_heat=True, Q_w=5, snow=True, h_s0=0)
+        h_i0=0.1, ocean_heat=True, Q_w=2, snow=True, h_s0=0)
 
     ### Display ###
-    Q_w = 5
+    Q_w = 2
     h_i0 = 0.1
     h_s0 = 0
     time_range_years = [time_range[i]/365 for i in range(N_days)]
@@ -555,12 +562,10 @@ def ctrl_sim():
         plt.plot(time_range_years, h_w_ar, label=r"$h_w$")
         plt.plot(time_range_years, h_ice, label=r"$h_{ice}$")
         plt.title(
-            'Submerged height and ice thickness evolution\n' +
-            r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(
-                alb_sur, Q_w, h_i0, h_s0, N_years), size=22)
-        plt.xlabel("Year", size=20)
-        plt.ylabel("Height [m]", size=20)
-        plt.legend(fontsize=18)
+            'TSIMAL Submerged height and ice thickness evolution\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years), size=11)
+        plt.xlabel("Year", size=8)
+        plt.ylabel("Height [m]", size=8)
+        plt.legend(fontsize=8)
         plt.grid()
         plt.savefig(save_dir + "submerged_height.png", dpi=300)
         # plt.show()
@@ -570,7 +575,7 @@ def ctrl_sim():
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
-        'TSIM Model with snow\n' + r'$\alpha_S$ = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(alb_sur, Q_w, h_i0, h_s0, N_years))
+        'TSIMAL Model with snow\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
 
     axs[0, 0].plot(time_range_years, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
@@ -745,6 +750,13 @@ def err_annual_mean_thick(h, mu71):
     return model_annual_mean_thick, mu71_annual_mean_thick, err_abs, err_rel
 
 
+def MSE_annual_mean_thick(h, mu71):
+    """ Compute the Mean Squared Error for TSIMAL model output regarding the MU71 serie. The MSE will be used as a diagnostic tool
+        for the efficienty of TSIMAL to reproduce the MU71 serie. Obviously the goal is to minimize MSE with tuning."""
+    mse = mean_squared_error(h, mu71)
+    return mse
+
+
 hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
            3.14, 2.96, 2.78, 2.73, 2.71, 2.72, 2.75]  # Target seasonal cycle of ice thickness of MU71
 
@@ -752,7 +764,7 @@ hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
 
 
 def tuning_comp():
-    """ Simulation and first comparaison between TSIM model and MU71 without any tuning. 
+    """ Simulation and first comparaison between TSIMAL model and MU71 without any tuning. 
         alb = 0.77, Q_W = 2W/m² and snow == True"""
 
     ### Instancing ###
@@ -828,11 +840,24 @@ def tuning_comp():
     ### Computation of the error on annual mean thickness ###
     mean_TSIMAL, mean_mu71, err_abs, err_rel = err_annual_mean_thick(
         hi_month_mean_last_year, hi_MU71)
+    ### Computation of the MSE on annual mean thickness ###
+    mse = MSE_annual_mean_thick(hi_month_mean_last_year, hi_MU71)
+    print("--------------------TSIMAL & MU71 Comparison----------------------")
+    print("------------------------------------------------------------------")
+    print('dyn_alb = {}, Q_W = {}W/m^2, gamma = {}, beta = {}'.format(dyn_alb,
+                                                                      Q_w, gamma_SM, beta_SM))
+    print('h_i(t=0) = {}m, h_s(t=0) = {}m, T = {} years'.format(
+        h_i0, h_s0, N_years))
+    print('alb_s = {}, alb_i = {}, epsilon = {}, i_0 = {}'.format(
+        alb_dry_snow, alb_bare_ice, epsilon, i_0))
+    print("------------------------------------------------------------------")
 
-    print("Mean ice thickness TSIMAL = {:.2f}m".format(mean_TSIMAL))
-    print("Mean ice thickness MU71 = {:.2f}m".format(mean_mu71))
+    print("Last year mean ice thickness TSIMAL = {:.3f}m".format(mean_TSIMAL))
+    print("Mean ice thickness MU71 = {:.3f}m".format(mean_mu71))
     print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))
+    print("MSE(TSIMAL,MU71) = {:.3f}".format(mse))
+    print("------------------------------------------------------------------")
 
 
 if __name__ == "__main__":

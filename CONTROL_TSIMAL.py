@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import scipy.optimize as opt
 from sklearn.metrics import mean_squared_error
 ####################################################### Parameters #########################################################
-qsqghsaqjsg
 ################################ Physical Constant #######################################
 
 sigma = 5.67e-8  # Stefan-Boltzman constant [J/°K]

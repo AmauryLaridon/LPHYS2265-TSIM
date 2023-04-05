@@ -49,6 +49,9 @@ h_s_crit = 0.1
 alb_dry_snow = 0.83  # albedo of dry snow [Adim]
 alb_bare_ice = 0.64  # albedo of bare ice [Adim]
 dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
+i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
+# part of the radiation reflected to space to compensate spurious melting following parametrisation of Semtner (1976)
+beta_SM = 0.0035
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -96,7 +99,7 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                                          T_bo + solar_flux(day) * (1-alb_surf) + non_solar_flux(day)]).real[3]])
+                                          T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]])
         else:
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
                                           solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]])
@@ -106,7 +109,7 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                             T_bo + solar_flux(day) * (1-alb_surf) + non_solar_flux(day)]).real[3]
+                             T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]
         else:
             root = np.roots([-epsilon * sigma, 0, 0, 0,
                              solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]
@@ -116,7 +119,7 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
         """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
         k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
             (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
-        nsf = solar_flux(day)*(1-alb_surf) + non_solar_flux(day) - \
+        nsf = solar_flux(day)*(1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day) - \
             epsilon*sigma*(T_su**4) - k_eff*(T_su - T_bo)
         return nsf
 
@@ -811,8 +814,8 @@ def tuning_comp():
 
     plt.plot(np.arange(1, 13), hi_month_mean_last_year, label=r"$hi_{TSIMAL}$")
     plt.plot(np.arange(1, 13), hi_MU71, label=r"$hi_{M71}$")
-    plt.title('TSIMAL last year ice thickness evolution comparaison with MU71\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}'.format(dyn_alb,
-                                                                                                                                          Q_w, gamma_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years), size=11)
+    plt.title('TSIMAL last year ice thickness evolution comparaison with MU71\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb,
+                                                                                                                                                        Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years), size=11)
     plt.xlabel("Month", size=10)
     plt.ylabel("Ice Thickness [m]", size=10)
     plt.legend(fontsize=8)
@@ -828,7 +831,7 @@ def tuning_comp():
 
     print("Mean ice thickness TSIMAL = {:.2f}m".format(mean_TSIMAL))
     print("Mean ice thickness MU71 = {:.2f}m".format(mean_mu71))
-    print("Absolute Error = {:.2f}m".format(err_abs))
+    print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))
 
 

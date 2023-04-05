@@ -60,6 +60,7 @@ i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
 save_dir = "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Figures/"
+data_dir = "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Data/"
 figure = plt.figure(figsize=(16, 10))
 
 ############################################################################################################################
@@ -427,6 +428,9 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         print("Sea ice thickness at the end of Day {} = {:.2f} m".format(
             day, h_i[day]))
         print("------------------------------------------------------------------")
+
+    data = np.column_stack((time_range, T_su_ar, h_i, h_s, T_mix_lay_ar))
+    np.savetxt(data_dir + 'CTL_TSIMAL.txt', data, delimiter=" ", fmt='%s ')
 
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 

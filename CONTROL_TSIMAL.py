@@ -807,15 +807,21 @@ def tuning_comp():
     fig, axs = plt.subplots(1, 2)
     fig.suptitle('TSIMAL Last year ice thickness evolution comparaison with MU71\n' + r'$dyn_alb =$ {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years, $\gamma$ = {}'.format(dyn_alb,
                                                                                                                                                                                                  Q_w, h_i0, h_s0, N_years, gamma_SM))
-    # Storing only the last year value of the sea ice thickness #
-    hi_last_year = np.zeros(365)
-    hi_last_year = h_ice[-365:]
+    # Storing only the n (starting from the end of the sim) year value of the sea ice thickness #
+    # n = 0 means we keep the last year values, n = T means we keep the first year values
+    n = 0
+    if n == 0:
+        hi_year_n = np.zeros(365)
+        hi_year_n = h_ice[-365:]
+    if n != 0:
+        hi_year_n = np.zeros(365)
+        hi_year_n = h_ice[-365*(n+1):-365*n]
 
-    hi_month_mean_last_year = month_mean_v2(hi_last_year)
+    hi_month_mean_year_n = month_mean_v2(hi_year_n)
 
     # Plotting #
 
-    axs[0].plot(np.arange(1, 13), hi_month_mean_last_year,
+    axs[0].plot(np.arange(1, 13), hi_month_mean_year_n,
                 label=r"$hi_{TSIMAL}$")
     axs[0].set_title('TSIMAL Model')
     axs[0].set_xlabel('Month')
@@ -837,10 +843,10 @@ def tuning_comp():
 
     ## Same plot ##
 
-    plt.plot(np.arange(1, 13), hi_month_mean_last_year, label=r"$hi_{TSIMAL}$")
+    plt.plot(np.arange(1, 13), hi_month_mean_year_n, label=r"$hi_{TSIMAL}$")
     plt.plot(np.arange(1, 13), hi_MU71, label=r"$hi_{M71}$")
-    plt.title('TSIMAL last year ice thickness evolution comparaison with MU71\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb,
-                                                                                                                                                        Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years), size=11)
+    plt.title('TSIMAL year {} ice thickness evolution comparaison with MU71\n'.format(N_years-n) + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb,
+                                                                                                                                                                        Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years), size=11)
     plt.xlabel("Month", size=10)
     plt.ylabel("Ice Thickness [m]", size=10)
     plt.legend(fontsize=8)
@@ -852,11 +858,11 @@ def tuning_comp():
 
     ### Computation of the error on annual mean thickness ###
     mean_TSIMAL, mean_mu71, err_abs, err_rel = err_annual_mean_thick(
-        hi_month_mean_last_year, hi_MU71)
+        hi_month_mean_year_n, hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
-    mse = MSE_annual_mean_thick(hi_month_mean_last_year, hi_MU71)
+    mse = MSE_annual_mean_thick(hi_month_mean_year_n, hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
-    r = cor_annual_mean_thick(hi_month_mean_last_year, hi_MU71)
+    r = cor_annual_mean_thick(hi_month_mean_year_n, hi_MU71)
 
     ### Output ###
     print("--------------------TSIMAL & MU71 Comparison----------------------")
@@ -869,7 +875,8 @@ def tuning_comp():
         alb_dry_snow, alb_bare_ice, epsilon, i_0))
     print("------------------------------------------------------------------")
 
-    print("Last year mean ice thickness TSIMAL = {:.3f}m".format(mean_TSIMAL))
+    print("Year {} mean ice thickness TSIMAL = {:.3f}m".format(
+        N_years - n, mean_TSIMAL))
     print("Mean ice thickness MU71 = {:.3f}m".format(mean_mu71))
     print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))

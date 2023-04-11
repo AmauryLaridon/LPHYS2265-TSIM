@@ -57,7 +57,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 6
+lw_forcing = 12
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -233,7 +233,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         h_i0 = ctl_data[-1, 2]
         h_s0 = ctl_data[-1, 3]
         T_su_0 = ctl_data[-1, 1]
-        T_mix_lay_0 = ctl_data[-1, -1]
+        T_mix_lay_0 = ctl_data[-1, 4]
     else:
         T_su_0, efm = surface_temp(
             h_i0, h_s0, day=1, limit_temp=temp_lim)
@@ -338,7 +338,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
 
             ### Energy change at the surface ###
             # Use to compute the energy budget at surface and wheter there is energy available for melting ice or snow or both.
-            # Energy gain at the surface during one day due to non equilibrium.[J/m^2]
+            # Energy gain at the surface during one day due to non equilibrium + the radiative forcing imposed [J/m^2]
             E_net_sur = E_net_surf(efm) + delta_lw_J  # [J/m²]
             if h_s[day-1] > 0:
                 # Case where there is still a layer of snow above the ice at the end of the previous day

@@ -57,7 +57,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 12
+lw_forcing = 6
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -93,7 +93,7 @@ def non_solar_flux(day):
 ######################### Model of surface temperature evolution ####################################
 
 
-def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
+def surface_temp(h_i, h_s, delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur):
     """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
     heat fluxes and return a single value for a given day and a given thickness of the ice and snow
     and the energy available for melting at the surface"""
@@ -106,31 +106,31 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                                          T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]])
+                                          T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day)]).real[3]])
         else:
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
-                                          solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]])
+                                          solar_flux(day) * (1-alb_wat) + delta_lw + non_solar_flux(day)]).real[3]])
     else:
         # Case when we dont limitate the surface temperature to remains below or egal to 0°C anymore.
         if h_i > 0:
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                             T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]
+                             T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day)]).real[3]
         else:
             root = np.roots([-epsilon * sigma, 0, 0, 0,
-                             solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]
+                             solar_flux(day) * (1-alb_wat) + delta_lw + non_solar_flux(day)]).real[3]
     T_su = root
 
-    def net_surf_flux(h_i, h_s, day, T_su, alb_surf=alb_sur):
+    def net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur):
         """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
         k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
             (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
-        nsf = solar_flux(day)*(1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day) - \
+        nsf = solar_flux(day)*(1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day) - \
             epsilon*sigma*(T_su**4) - k_eff*(T_su - T_bo)
         return nsf
 
-    nsf = net_surf_flux(h_i, h_s, day, T_su, alb_surf=alb_sur)
+    nsf = net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur)
 
     if nsf > 0:
         # If the net solar flux is positive, this energy is available for melting and will be stored in a variable efm (energy for melting)
@@ -323,7 +323,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             # Computation of the surface temperature given a particular day and ice and snow thickness
 
             T_su, efm = surface_temp(
-                h_i[day-1], h_s[day-1], day, limit_temp=temp_lim, alb_surf=alb_sur)
+                h_i[day-1], h_s[day-1], delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
             T_su_ar[day] = T_su
 
             ### Energy change at the bottom ###
@@ -418,7 +418,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             ## Surface temperature computation ##
             # Computation of the surface temperature given a particular day and ice thickness
             T_su, efm = surface_temp(
-                h_i[day-1], h_s[day-1], day, limit_temp=temp_lim, alb_surf=alb_sur)
+                h_i[day-1], h_s[day-1], delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
             T_su_ar[day] = T_su
             if T_w >= T_bo:
                 # In this case the water can warm without producing sea ice

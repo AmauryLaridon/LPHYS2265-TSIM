@@ -30,20 +30,14 @@ rho_w = 1025  # density of sea water [kg/m³]
 ############################## Simulation Parameters ######################################
 N_years = 100  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
-h = 0.5  # sea ice thickness [m]
 alb_sur = 0.77  # surface albedo [Adim]
 alb_wat = 0.1  # albedo of water [Adim]
-# snow fall modulator,=1 represent the standard values [Adim]
-snow_fall_mod = 1
-temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
-snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 h_w = 50  # depth of the ocean mix layer [m]
 M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
 T_bo = -1.8 + kelvin
 Day_0 = 1  # set the first day of the simulation [Adim]
-# critical value of the snow thickness that change the albedo regim. Used for tuning [m]
-h_s_crit = 0.1
+
 
 ########## Tuning Parameters ##########
 init_ctl = True  # condition wheter we start with the initial values of the last day of our CONTROL_TSIMAL.py run or not
@@ -55,7 +49,13 @@ alb_dry_snow = 0.83  # albedo of dry snow [Adim]
 alb_bare_ice = 0.64  # albedo of bare ice [Adim]
 epsilon = 0.99  # surface emissivity [Adim]
 dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
+# critical value of the snow thickness that change the albedo regim. Used for tuning [m]
+h_s_crit = 0.1
 i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
+# snow fall modulator,=1 represent the standard values [Adim]
+snow_fall_mod = 1
+temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
+snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
 lw_forcing = 6
 
@@ -928,6 +928,11 @@ def cor_annual_mean_thick(h, mu71):
     return r
 
 
+def std_var_mean_thick(h):
+    std = np.std(h)
+    return std
+
+
 ##### MU 71 Ice Thickness #####
 hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
            3.14, 2.96, 2.78, 2.73, 2.71, 2.72, 2.75]  # Target seasonal cycle of ice thickness of MU71
@@ -1019,6 +1024,9 @@ def tuning_comp():
     ### Computation of the error on annual mean thickness ###
     mean_TSIMAL, mean_mu71, err_abs, err_rel = err_annual_mean_thick(
         hi_month_mean_year_n, hi_MU71)
+    ### Computation of the standard deviation with regard to annual mean thickness ###
+    std_TSIMAL = std_var_mean_thick(hi_month_mean_year_n)
+    std_MU71 = std_var_mean_thick(hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
     mse = MSE_annual_mean_thick(hi_month_mean_year_n, hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
@@ -1040,6 +1048,8 @@ def tuning_comp():
     print("Mean ice thickness MU71 = {:.3f}m".format(mean_mu71))
     print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))
+    print("Standard deviation TSIMAL = {:.3f}".format(std_TSIMAL))
+    print("Standard deviation MU71 = {:.3f}".format(std_MU71))
     print("MSE(TSIMAL,MU71) = {:.3f}".format(mse))
     print("r(TSIMAL,MU71) = {:.3f}".format(r))
     print("------------------------------------------------------------------")

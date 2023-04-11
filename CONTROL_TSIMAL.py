@@ -760,7 +760,7 @@ def err_annual_mean_thick(h, mu71):
 def MSE_annual_mean_thick(h, mu71):
     """ Compute the Mean Squared Error for TSIMAL model output regarding the MU71 serie. The MSE will be used as a diagnostic tool
         for the efficienty of TSIMAL to reproduce the MU71 serie. The goal is to minimize MSE with tuning."""
-    mse = mean_squared_error(h, mu71)
+    mse = mean_squared_error(mu71, h)
     return mse
 
 
@@ -771,6 +771,11 @@ def cor_annual_mean_thick(h, mu71):
     corr_matrix = np.corrcoef(h, mu71)
     r = corr_matrix[0, 1]
     return r
+
+
+def std_var_mean_thick(h):
+    std = np.std(h)
+    return std
 
 
 hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
@@ -863,6 +868,9 @@ def tuning_comp():
     ### Computation of the error on annual mean thickness ###
     mean_TSIMAL, mean_mu71, err_abs, err_rel = err_annual_mean_thick(
         hi_month_mean_year_n, hi_MU71)
+    ### Computation of the standard deviation with regard to annual mean thickness ###
+    std_TSIMAL = std_var_mean_thick(hi_month_mean_year_n)
+    std_MU71 = std_var_mean_thick(hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
     mse = MSE_annual_mean_thick(hi_month_mean_year_n, hi_MU71)
     ### Computation of the MSE on annual mean thickness ###
@@ -884,6 +892,8 @@ def tuning_comp():
     print("Mean ice thickness MU71 = {:.3f}m".format(mean_mu71))
     print("Absolute Error = {:.4f}m".format(err_abs))
     print("Relative Error = {:.2f}%".format(err_rel))
+    print("Standard deviation TSIMAL = {:.3f}".format(std_TSIMAL))
+    print("Standard deviation MU71 = {:.3f}".format(std_MU71))
     print("MSE(TSIMAL,MU71) = {:.3f}".format(mse))
     print("r(TSIMAL,MU71) = {:.3f}".format(r))
     print("------------------------------------------------------------------")

@@ -57,7 +57,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 6
+lw_forcing = 6  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -236,7 +236,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         T_mix_lay_0 = ctl_data[-1, 4]
     else:
         T_su_0, efm = surface_temp(
-            h_i0, h_s0, day=1, limit_temp=temp_lim)
+            h_i0, h_s0, delta_lw, day=1, limit_temp=temp_lim)
         T_mix_lay_0 = T_bo
         # array colecting the values of the sea ice thickness for each day
     h_i = np.zeros(N_days)

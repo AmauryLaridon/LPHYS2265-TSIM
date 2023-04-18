@@ -429,7 +429,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             day, h_i[day]))
         print("------------------------------------------------------------------")
 
-    data = np.column_stack((time_range, T_su_ar, h_i, h_s, T_mix_lay_ar))
+    data = np.column_stack(
+        (time_range[-365:], T_su_ar[-365:], h_i[-365:], h_s[-365:], T_mix_lay_ar[-365:]))
     np.savetxt(data_dir + 'CTL_TSIMAL.txt', data, delimiter=" ", fmt='%s ')
 
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
@@ -902,5 +903,5 @@ def tuning_comp():
 if __name__ == "__main__":
     # first_and_mult_ice()
     # ctrl_sim_without_snow()
-    # ctrl_sim()
+    ctrl_sim()
     tuning_comp()

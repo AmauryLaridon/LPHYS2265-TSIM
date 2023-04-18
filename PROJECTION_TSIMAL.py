@@ -57,7 +57,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 6  # long wave radiation forcing [W/m²]
+lw_forcing = 3  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -276,6 +276,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         ### Longwave perturbation ###
         delta_lw_max = lw_forcing
         year = np.modf(day/365)[1]
+       # print(year)
         delta_lw = delta_lw_max * year / 100  # [W/m²]
         delta_lw_J = delta_lw * sec_per_day  # [J/m²]
 
@@ -339,7 +340,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             ### Energy change at the surface ###
             # Use to compute the energy budget at surface and wheter there is energy available for melting ice or snow or both.
             # Energy gain at the surface during one day due to non equilibrium + the radiative forcing imposed [J/m^2]
-            E_net_sur = E_net_surf(efm) + delta_lw_J  # [J/m²]
+            E_net_sur = E_net_surf(efm)  # [J/m²]
             if h_s[day-1] > 0:
                 # Case where there is still a layer of snow above the ice at the end of the previous day
                 # We first compute what will be the snow layer loss if the total energy available for melting is used to melt snow.
@@ -730,11 +731,11 @@ def ctrl_sim():
     fig.suptitle(
         r'Yearly diagnostics TSIMAL Projection with $\Delta Q = {}W/m^2$'.format(lw_forcing) + '\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
 
-    axs[0, 0].plot(np.arange(0, 100), h_i_max,
+    axs[0, 0].plot(np.arange(0, N_years), h_i_max,
                    label=r"$h_i^{max}$", linewidth=1)
-    axs[0, 0].plot(np.arange(0, 100), h_i_min,
+    axs[0, 0].plot(np.arange(0, N_years), h_i_min,
                    label=r"$h_i^{min}$", linewidth=1)
-    axs[0, 0].plot(np.arange(0, 100), h_i_mean,
+    axs[0, 0].plot(np.arange(0, N_years), h_i_mean,
                    label=r"$h_i^{mean}$", linewidth=1)
     axs[0, 0].set_title('Ice thickness')
     axs[0, 0].set_xlabel('Year')
@@ -743,7 +744,7 @@ def ctrl_sim():
     axs[0, 0].grid()
     axs[0, 0].legend()
 
-    axs[0, 1].plot(np.arange(0, 100), h_s_max, label=r'$h_s^{max}$',
+    axs[0, 1].plot(np.arange(0, N_years), h_s_max, label=r'$h_s^{max}$',
                    color='c', linewidth=1)
     axs[0, 1].set_title('Snow thickness')
     axs[0, 1].sharex(axs[0, 0])
@@ -753,7 +754,7 @@ def ctrl_sim():
     # axs[0, 1].set_xlabel('Days')
     # axs[0, 0].set_ylabel('Thickness [m]')
 
-    axs[1, 0].plot(np.arange(0, 100), T_su_min - kelvin, label=r'$T_{su}^{min}$',
+    axs[1, 0].plot(np.arange(0, N_years), T_su_min - kelvin, label=r'$T_{su}^{min}$',
                    color='orange', linewidth=1)
     axs[1, 0].set_title('Surface Temperature')
     axs[1, 0].sharex(axs[0, 0])

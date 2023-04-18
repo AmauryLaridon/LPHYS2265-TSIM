@@ -2,7 +2,7 @@
 # Thermodynamic Sea Ice Model of Amaury Laridon (TSIMAL)
 # Author : Amaury Laridon
 # Course : LPHYS2265 - Sea ice ocean interactions in polar regions
-# Goal : Final version of the TSIM model use for control simulation and outputs for Part 2 of the project.
+# Goal : Final version of the TSIM model use for Projections and outputs for Part 2 of the project.
 #        Modelisation of the evolution of sea-ice thickness with  a dynamic
 #        surface temperature Free Surface Temperature (FST) and an Addition of Ocean and Snow (AOO)
 #        More information on the GitHub Page of the project : https://github.com/AmauryLaridon/TSIM.git
@@ -28,34 +28,36 @@ c = 4000  # heat capacity of water [J/(kg.°K)]
 rho_w = 1025  # density of sea water [kg/m³]
 
 ############################## Simulation Parameters ######################################
-N_years = 50  # number of years in the simulation [Adim]
+N_years = 100  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
-h = 0.5  # sea ice thickness [m]
 alb_sur = 0.77  # surface albedo [Adim]
 alb_wat = 0.1  # albedo of water [Adim]
-# snow fall modulator,=1 represent the standard values [Adim]
-snow_fall_mod = 1
-temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
-snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 h_w = 50  # depth of the ocean mix layer [m]
 M_w = rho_w*h_w  # masse of water in the mixed layer [kg/m^2]
 # temperature at the freezing point of sea water with a salinity of 34g/kg
 T_bo = -1.8 + kelvin
 Day_0 = 1  # set the first day of the simulation [Adim]
-# critical value of the snow thickness that change the albedo regim. Used for tuning [m]
-h_s_crit = 0.1
+
 
 ########## Tuning Parameters ##########
+init_ctl = True  # condition wheter we start with the initial values of the last day of our CONTROL_TSIMAL.py run or not
 # factor which multiplies thermal conductivities of ice and snow for tuning [Adim]
 gamma_SM = 1.04
-# part of the radiation reflected to space to compensate spurious melting following parametrisation of Semtner (1976)
+# part of the radiation reflected to space to compensate spurious melting following parametrisation of Semtner (1976) [Adim]
 beta_SM = 0.0035
 alb_dry_snow = 0.83  # albedo of dry snow [Adim]
 alb_bare_ice = 0.64  # albedo of bare ice [Adim]
 epsilon = 0.99  # surface emissivity [Adim]
 dyn_alb = True  # condition wheter we use a fixed value of the surface albedo or not. Used for output
+# critical value of the snow thickness that change the albedo regim. Used for tuning [m]
+h_s_crit = 0.1
 i_0 = 0.25  # fraction of radiation penetrating below the ice surface [Adim]
-
+# snow fall modulator,=1 represent the standard values [Adim]
+snow_fall_mod = 1
+temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
+snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
+# maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
+lw_forcing = 12  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -91,7 +93,7 @@ def non_solar_flux(day):
 ######################### Model of surface temperature evolution ####################################
 
 
-def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
+def surface_temp(h_i, h_s, delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur):
     """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
     heat fluxes and return a single value for a given day and a given thickness of the ice and snow
     and the energy available for melting at the surface"""
@@ -104,31 +106,31 @@ def surface_temp(h_i, h_s, day, limit_temp=temp_lim, alb_surf=alb_sur):
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                                          T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]])
+                                          T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day)]).real[3]])
         else:
             root = min([273.15, np.roots([-epsilon * sigma, 0, 0, 0,
-                                          solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]])
+                                          solar_flux(day) * (1-alb_wat) + delta_lw + non_solar_flux(day)]).real[3]])
     else:
         # Case when we dont limitate the surface temperature to remains below or egal to 0°C anymore.
         if h_i > 0:
             k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
                 (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
             root = np.roots([-epsilon * sigma, 0, 0, -k_eff, k_eff *
-                             T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day)]).real[3]
+                             T_bo + solar_flux(day) * (1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day)]).real[3]
         else:
             root = np.roots([-epsilon * sigma, 0, 0, 0,
-                             solar_flux(day) * (1-alb_wat) + non_solar_flux(day)]).real[3]
+                             solar_flux(day) * (1-alb_wat) + delta_lw + non_solar_flux(day)]).real[3]
     T_su = root
 
-    def net_surf_flux(h_i, h_s, day, T_su, alb_surf=alb_sur):
+    def net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur):
         """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
         k_eff = ((ki*gamma_SM)*(ks*gamma_SM)) / \
             (ki * gamma_SM * h_s + ks * gamma_SM * h_i)  # [W/m²/K]
-        nsf = solar_flux(day)*(1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + non_solar_flux(day) - \
+        nsf = solar_flux(day)*(1-(alb_surf + beta_SM * (1-alb_surf) * i_0)) + delta_lw + non_solar_flux(day) - \
             epsilon*sigma*(T_su**4) - k_eff*(T_su - T_bo)
         return nsf
 
-    nsf = net_surf_flux(h_i, h_s, day, T_su, alb_surf=alb_sur)
+    nsf = net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur)
 
     if nsf > 0:
         # If the net solar flux is positive, this energy is available for melting and will be stored in a variable efm (energy for melting)
@@ -206,7 +208,7 @@ def E_net_surf(efm):
     return E_net_surf
 
 
-def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=T_bo, limit_temp=temp_lim):
+def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=T_bo, limit_temp=temp_lim, init_ctl=init_ctl):
     """Computation of the evolution of the sea ice and snow thickness using Stefan's law.
     An option gives the possibility to add an Oceanic heat flux and a layer of snow.
     This function returns an array with the sea ice thickness, snow thickness, surface temperature, mixed layer temperature,
@@ -222,27 +224,42 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
     print("------------------------------------------------------------------")
 
     ##### Initialization #####
-    # array colecting the values of the sea ice thickness for each day
+
+    if init_ctl == True:
+        # We recover for the initial values of h_i, h_s, T_w and T_su the last value
+        # of CONTROL_TSIMAL.py at the end of the equilibrium cycle
+        ctl_data = np.genfromtxt(
+            "/home/amaury/Bureau/LPHYS2265 - Sea ice ocean atmosphere interactions in polar regions/Projet/Data/CTL_TSIMAL.txt")
+        h_i0 = ctl_data[-1, 2]
+        h_s0 = ctl_data[-1, 3]
+        T_su_0 = ctl_data[-1, 1]
+        T_mix_lay_0 = ctl_data[-1, 4]
+    else:
+        T_su_0, efm = surface_temp(
+            h_i0, h_s0, delta_lw, day=1, limit_temp=temp_lim)
+        T_mix_lay_0 = T_bo
+        # array colecting the values of the sea ice thickness for each day
     h_i = np.zeros(N_days)
-    h_i[0] = h_i0  # initial condition for the sea ice thickness for the first day [m]
+    # initial condition for the sea ice thickness for the first day [m]
+    h_i[0] = h_i0
     # array colecting the values of snow thickness for each day
     h_s = np.zeros(N_days)
-    h_s[0] = h_s0  # initial condition for the snow thickness for the first day [m]
+    # initial condition for the snow thickness for the first day [m]
+    h_s[0] = h_s0
     # array colecting the values of surface temperature for each day
     T_su_ar = np.zeros(N_days)
-    # initialized surface temperature in regard of the ice thickness, incoming Energy and bottom temp.
-    T_su, efm = surface_temp(
-        h_i0, h_s0, day=1, limit_temp=temp_lim)
-    T_su_ar[0] = T_su
+    # initialized surface temperature with CONTROL_TSIMAL.py
+    T_su_ar[0] = T_su_0
     # array colecting the values of ocean mix layer temperature for each day
     T_mix_lay_ar = np.zeros(N_days)
-    # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
-    T_w = T_bo
-    T_mix_lay_ar[0] = T_w
+    # initialized surface temperature with CONTROL_TSIMAL.py
+    T_mix_lay_ar[0] = T_mix_lay_0
     # array that stored the height of the volume of water displaced by the volume of ice and snow [m]
     h_w_ar = np.zeros(N_days)
     T_eq = 0  # time in days needed to obtain equilibrium in the ice thickness
 
+    # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
+    T_w = T_bo
     time_range = range(0, integration_range)  # integration range in days
 
     ##### Dynamic Model ######
@@ -255,6 +272,13 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         if snow == True:
             print("Snow thickness at begining of Day {} = {:.2f} m".format(
                 day, h_s[day-1]))
+
+        ### Longwave perturbation ###
+        delta_lw_max = lw_forcing
+        year = np.modf(day/365)[1]
+       # print(year)
+        delta_lw = delta_lw_max * year / 100  # [W/m²]
+        # delta_lw_J = delta_lw * sec_per_day  # [J/m²]
 
         ### Definition alb_sur ###
         if dyn_alb == True:
@@ -300,7 +324,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             # Computation of the surface temperature given a particular day and ice and snow thickness
 
             T_su, efm = surface_temp(
-                h_i[day-1], h_s[day-1], day, limit_temp=temp_lim, alb_surf=alb_sur)
+                h_i[day-1], h_s[day-1], delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
             T_su_ar[day] = T_su
 
             ### Energy change at the bottom ###
@@ -315,7 +339,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
 
             ### Energy change at the surface ###
             # Use to compute the energy budget at surface and wheter there is energy available for melting ice or snow or both.
-            # Energy gain at the surface during one day due to non equilibrium.[J/m^2]
+            # Energy gain at the surface during one day due to non equilibrium + the radiative forcing imposed [J/m^2]
             E_net_sur = E_net_surf(efm)  # [J/m²]
             if h_s[day-1] > 0:
                 # Case where there is still a layer of snow above the ice at the end of the previous day
@@ -395,7 +419,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
             ## Surface temperature computation ##
             # Computation of the surface temperature given a particular day and ice thickness
             T_su, efm = surface_temp(
-                h_i[day-1], h_s[day-1], day, limit_temp=temp_lim, alb_surf=alb_sur)
+                h_i[day-1], h_s[day-1], delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
             T_su_ar[day] = T_su
             if T_w >= T_bo:
                 # In this case the water can warm without producing sea ice
@@ -430,7 +454,8 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         print("------------------------------------------------------------------")
 
     data = np.column_stack((time_range, T_su_ar, h_i, h_s, T_mix_lay_ar))
-    np.savetxt(data_dir + 'CTL_TSIMAL.txt', data, delimiter=" ", fmt='%s ')
+    np.savetxt(data_dir + 'PR' + str(lw_forcing) +
+               '_TSIMAL_full_data.txt', data, delimiter=" ", fmt='%s ')
 
     return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
 
@@ -444,6 +469,28 @@ def first_and_mult_ice():
     ### Instancing ###
     h_ice_free, h_snow_ice_free, T_su_ice_free, T_mix_lay_ice_free, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
+
+    ### Yearly Diagnostics ###
+
+    # array to store the annual maximum ice thickness
+    h_i_max = np.zeros(N_years)
+    # array to store the annual minimum ice thickness
+    h_i_min = np.zeros(N_years)
+    h_i_mean = np.zeros(N_years)  # array to store the annual mean thickness
+    # array to store the annual maximum snow thickness
+    h_s_max = np.zeros(N_years)
+    # array to store the annual minima of surface temperature
+    T_su_min = np.zeros(N_years)
+
+    for year in range(0, N_years):
+        day00 = year * 365
+        day99 = day00 + 364
+        h_i_max[year] = max(h_ice_free[day00:day99])
+        h_s_max[year] = max(h_snow_ice_free[day00:day99])
+        h_i_min[year] = min(h_ice_free[day00:day99])
+        h_i_mean[year] = np.mean(h_ice_free[day00:day99])
+        T_su_min[year] = min(T_su_ice_free[day00:day99])
+
     ### Display ###
     ## Ice thickness evolution plot ##
     Q_w = 5
@@ -492,6 +539,28 @@ def ctrl_sim_without_snow():
     ### Instancing ###
     h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=False, h_s0=0)
+
+    ### Yearly Diagnostics ###
+
+    # array to store the annual maximum ice thickness
+    h_i_max = np.zeros(N_years)
+    # array to store the annual minimum ice thickness
+    h_i_min = np.zeros(N_years)
+    h_i_mean = np.zeros(N_years)  # array to store the annual mean thickness
+    # array to store the annual maximum snow thickness
+    h_s_max = np.zeros(N_years)
+    # array to store the annual minima of surface temperature
+    T_su_min = np.zeros(N_years)
+
+    for year in range(0, N_years):
+        day00 = year * 365
+        day99 = day00 + 364
+        h_i_max[year] = max(h_ice[day00:day99])
+        h_s_max[year] = max(h_snow[day00:day99])
+        h_i_min[year] = min(h_ice[day00:day99])
+        h_i_mean[year] = np.mean(h_ice[day00:day99])
+        T_su_min[year] = min(T_su[day00:day99])
+
     ### Display ###
     ## Ice thickness evolution plot ##
     h_i0 = 0.1
@@ -507,7 +576,7 @@ def ctrl_sim_without_snow():
     axs[0, 0].set_title('Ice thickness')
     axs[0, 0].set_xlabel('Year')
     axs[0, 0].set_ylabel('Thickness [m]')
-    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50])
+    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
     # axs[0, 1].set_xticks(np.arange(0, 5, 1))
     axs[0, 0].grid()
 
@@ -557,6 +626,33 @@ def ctrl_sim():
     h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=True, h_s0=0)
 
+    ### Yearly Diagnostics ###
+
+    # array to store the annual maximum ice thickness
+    h_i_max = np.zeros(N_years)
+    # array to store the annual minimum ice thickness
+    h_i_min = np.zeros(N_years)
+    h_i_mean = np.zeros(N_years)  # array to store the annual mean thickness
+    # array to store the annual maximum snow thickness
+    h_s_max = np.zeros(N_years)
+    # array to store the annual minima of surface temperature
+    T_su_min = np.zeros(N_years)
+
+    for year in range(0, N_years):
+        day00 = year * 365
+        day99 = day00 + 364
+        h_i_max[year] = max(h_ice[day00:day99])
+        h_s_max[year] = max(h_snow[day00:day99])
+        h_i_min[year] = min(h_ice[day00:day99])
+        h_i_mean[year] = np.mean(h_ice[day00:day99])
+        T_su_min[year] = min(T_su[day00:day99])
+
+    ## Exporting yearly diagnostics data ##
+    yearly_diag = np.column_stack(
+        (np.arange(0, N_years), h_i_min, h_i_mean, h_i_max, h_s_max, T_su_min))
+    np.savetxt(data_dir + 'PR' + str(lw_forcing) +
+               '_TSIMAL.txt', yearly_diag, delimiter=" ", fmt='%s ')
+
     ### Display ###
     Q_w = 2
     h_i0 = 0.1
@@ -574,7 +670,7 @@ def ctrl_sim():
         plt.ylabel("Height [m]", size=8)
         plt.legend(fontsize=8)
         plt.grid()
-        plt.savefig(save_dir + "submerged_height.png", dpi=300)
+        # plt.savefig(save_dir + "submerged_height.png", dpi=300)
         # plt.show()
         plt.clf()
 
@@ -582,12 +678,12 @@ def ctrl_sim():
 
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(
-        'TSIMAL Model with snow\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
+        r'TSIMAL Projection with $\Delta Q = {}W/m^2$'.format(lw_forcing) + '\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
 
     axs[0, 0].plot(time_range_years, h_ice, label="h_ice", linewidth=0.4)
     axs[0, 0].set_title('Ice thickness')
     axs[0, 0].set_xlabel('Year')
-    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50])
+    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
     axs[0, 0].set_ylabel('Thickness [m]')
     axs[0, 0].grid()
 
@@ -625,7 +721,67 @@ def ctrl_sim():
     #    ax.label_outer()
 
     fig.tight_layout()
-    plt.savefig(save_dir + "ctrl_sim_with_snow.png", dpi=300)
+    plt.savefig(save_dir + "PR" + str(lw_forcing) + "_TSIMAL.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ## Control Subplot Yearly diagnostics ##
+
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle(
+        r'Yearly diagnostics TSIMAL Projection with $\Delta Q = {}W/m^2$'.format(lw_forcing) + '\n' + r'dyn_alb = {}, $Q_W = {}W/m^2$, $\gamma$ = {}, $\beta$ = {}'.format(dyn_alb, Q_w, gamma_SM, beta_SM) + '\n' + r'$h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years'.format(h_i0, h_s0, N_years))
+
+    axs[0, 0].plot(np.arange(0, N_years), h_i_max,
+                   label=r"$h_i^{max}$", linewidth=1)
+    axs[0, 0].plot(np.arange(0, N_years), h_i_min,
+                   label=r"$h_i^{min}$", linewidth=1)
+    axs[0, 0].plot(np.arange(0, N_years), h_i_mean,
+                   label=r"$h_i^{mean}$", linewidth=1)
+    axs[0, 0].set_title('Ice thickness')
+    axs[0, 0].set_xlabel('Year')
+    axs[0, 0].set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    axs[0, 0].set_ylabel('Thickness [m]')
+    axs[0, 0].grid()
+    axs[0, 0].legend()
+
+    axs[0, 1].plot(np.arange(0, N_years), h_s_max, label=r'$h_s^{max}$',
+                   color='c', linewidth=1)
+    axs[0, 1].set_title('Snow thickness')
+    axs[0, 1].sharex(axs[0, 0])
+    axs[0, 1].set_xlabel('Year')
+    axs[0, 1].grid()
+    axs[0, 1].legend()
+    # axs[0, 1].set_xlabel('Days')
+    # axs[0, 0].set_ylabel('Thickness [m]')
+
+    axs[1, 0].plot(np.arange(0, N_years), T_su_min - kelvin, label=r'$T_{su}^{min}$',
+                   color='orange', linewidth=1)
+    axs[1, 0].set_title('Surface Temperature')
+    axs[1, 0].sharex(axs[0, 0])
+    axs[1, 0].set_xlabel('Year')
+    axs[1, 0].set_ylabel('Temperature [°C]')
+    axs[1, 0].grid()
+    axs[1, 0].legend()
+
+    axs[1, 1].plot(time_range_years, T_mix_lay - kelvin, label='T_w',
+                   color='green', linewidth=1)
+    axs[1, 1].set_title('Mix Layered Temperature')
+    axs[1, 1].sharex(axs[1, 0])
+    axs[1, 1].grid()
+    axs[1, 1].set_xlabel('Year')
+    # axs[1, 1].set_xlabel('Days')
+    # axs[1, 1].set_ylabel('Temperature [°K]')
+
+    # for ax in axs.flat:
+    #    ax.set(xlabel='Days', ylabel='Temperature [°K]')
+
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    # for ax in axs.flat:
+    #    ax.label_outer()
+
+    fig.tight_layout()
+    plt.savefig(save_dir + "PR" + str(lw_forcing) +
+                "_yearly_diag_TSIMAL.png", dpi=300)
     # plt.show()
     plt.clf()
 
@@ -760,7 +916,7 @@ def err_annual_mean_thick(h, mu71):
 def MSE_annual_mean_thick(h, mu71):
     """ Compute the Mean Squared Error for TSIMAL model output regarding the MU71 serie. The MSE will be used as a diagnostic tool
         for the efficienty of TSIMAL to reproduce the MU71 serie. The goal is to minimize MSE with tuning."""
-    mse = mean_squared_error(mu71, h)
+    mse = mean_squared_error(h, mu71)
     return mse
 
 
@@ -778,6 +934,7 @@ def std_var_mean_thick(h):
     return std
 
 
+##### MU 71 Ice Thickness #####
 hi_MU71 = [2.82, 2.89, 2.97, 3.04, 3.10,
            3.14, 2.96, 2.78, 2.73, 2.71, 2.72, 2.75]  # Target seasonal cycle of ice thickness of MU71
 
@@ -903,4 +1060,4 @@ if __name__ == "__main__":
     # first_and_mult_ice()
     # ctrl_sim_without_snow()
     ctrl_sim()
-    tuning_comp()
+    # tuning_comp()

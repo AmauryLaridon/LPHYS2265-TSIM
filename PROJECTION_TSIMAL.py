@@ -57,7 +57,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 3  # long wave radiation forcing [W/m²]
+lw_forcing = 12  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams['text.usetex'] = True
@@ -278,7 +278,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
         year = np.modf(day/365)[1]
        # print(year)
         delta_lw = delta_lw_max * year / 100  # [W/m²]
-        delta_lw_J = delta_lw * sec_per_day  # [J/m²]
+        # delta_lw_J = delta_lw * sec_per_day  # [J/m²]
 
         ### Definition alb_sur ###
         if dyn_alb == True:
@@ -425,7 +425,7 @@ def ice_thick(h_i0, ocean_heat, Q_w, snow, h_s0, integration_range=N_days, T_bo=
                 # In this case the water can warm without producing sea ice
                 # Energy gain by the mixed layer in one day [J/m^2]
                 delta_h = 0
-                E_gain = E_gain_mixed_layer(T_w, day, Q_w) + delta_lw_J
+                E_gain = E_gain_mixed_layer(T_w, day, Q_w)
                 T_w += E_gain/(M_w*c)  # New mixed layer temperature [°K]
                 T_mix_lay_ar[day] = T_w
             else:

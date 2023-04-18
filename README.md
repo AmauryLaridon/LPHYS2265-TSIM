@@ -3,8 +3,7 @@
 
 GitHub made for the Project : "**Built your own thermodynamics sea ice model**" of the LPHYS2265 class. 
 
-
-![PR12_TSIMAL](https://user-images.githubusercontent.com/58213378/232316931-3889bce8-9fc1-44dc-a8fe-e78780ae3d41.png)
+![PR12_TSIMAL](https://user-images.githubusercontent.com/58213378/232839570-4c650002-8b9c-43ba-a6a4-a562971b77c1.png)
 
 
 ## Organization of the files 

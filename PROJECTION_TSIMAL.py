@@ -31,7 +31,7 @@ rho_w = 1025  # density of sea water [kg/m³]
 ############################## Simulation Parameters ######################################
 N_years = 100  # number of years in the simulation [Adim]
 N_days = 365 * N_years  # number of days in the simulation [Adim]
-alb_sur = 0.77  # surface albedo [Adim]
+alb_surf = 0.77  # surface albedo [Adim]
 alb_wat = 0.1  # albedo of water [Adim]
 h_w = 50  # depth of the ocean mix layer [m]
 M_w = rho_w * h_w  # masse of water in the mixed layer [kg/m^2]
@@ -58,7 +58,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 3  # long wave radiation forcing [W/m²]
+lw_forcing = 25  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams["text.usetex"] = True
@@ -94,7 +94,7 @@ def non_solar_flux(day):
 ######################### Model of surface temperature evolution ####################################
 
 
-def surface_temp(h_i, h_s, delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur):
+def surface_temp(h_i, h_s, delta_lw, day, alb_surf, limit_temp=temp_lim):
     """Compute the evolution of the surface temperature with respect to the variation of the atmospheric
     heat fluxes and return a single value for a given day and a given thickness of the ice and snow
     and the energy available for melting at the surface"""
@@ -173,7 +173,7 @@ def surface_temp(h_i, h_s, delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
             ).real[3]
     T_su = root
 
-    def net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur):
+    def net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf):
         """Compute the net solar flux for a given day with a given sea ice and snow thickness"""
         k_eff = ((ki * gamma_SM) * (ks * gamma_SM)) / (
             ki * gamma_SM * h_s + ks * gamma_SM * h_i
@@ -187,7 +187,7 @@ def surface_temp(h_i, h_s, delta_lw, day, limit_temp=temp_lim, alb_surf=alb_sur)
         )
         return nsf
 
-    nsf = net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf=alb_sur)
+    nsf = net_surf_flux(h_i, h_s, delta_lw, day, T_su, alb_surf)
 
     if nsf > 0:
         # If the net solar flux is positive, this energy is available for melting and will be stored in a variable efm (energy for melting)
@@ -312,7 +312,9 @@ def ice_thick(
         T_su_0 = ctl_data[-1, 1]
         T_mix_lay_0 = ctl_data[-1, 4]
     else:
-        T_su_0, efm = surface_temp(h_i0, h_s0, delta_lw, day=1, limit_temp=temp_lim)
+        T_su_0, efm = surface_temp(
+            h_i0, h_s0, delta_lw, alb_surf, day=1, limit_temp=temp_lim
+        )
         T_mix_lay_0 = T_bo
         # array colecting the values of the sea ice thickness for each day
     h_i = np.zeros(N_days)
@@ -333,7 +335,11 @@ def ice_thick(
     # array that stored the height of the volume of water displaced by the volume of ice and snow [m]
     h_w_ar = np.zeros(N_days)
     T_eq = 0  # time in days needed to obtain equilibrium in the ice thickness
-
+    # array that stored the surface albedo value [Adim]
+    alb_sur_ar = np.zeros(N_days)
+    alb_sur_ar[
+        0
+    ] = alb_dry_snow  # for the projection simulations that start from the end of the control run we have an initial snow thickness such that the surface albedo is the one of snow.
     # At the beggining, the mixed layer temperature is equal to the sea ice bottom temperature [K]
     T_w = T_bo
     time_range = range(0, integration_range)  # integration range in days
@@ -369,17 +375,20 @@ def ice_thick(
             if h_s[day - 1] > h_s_crit:
                 # If the snow thickness is superior than the critical value, the surface albedo is the one of the dry snow
                 alb_sur = alb_dry_snow
-
+                alb_sur_ar[day] = alb_sur
             elif h_s[day - 1] == 0:
                 # if there is no snow in the simulation the albedo of the surface is the one of the bare ice
                 alb_sur = alb_bare_ice
-
-            elif h_s[day - 1] < 10 and h_s[day - 1] > 0:
+                alb_sur_ar[day] = alb_sur
+            elif h_s[day - 1] < h_s_crit and h_s[day - 1] > 0:
                 # slope of the linear relation for the surface albedo between zero thickness of snow and the critical value giving a surface albedo between the bare ice value and the dry snow value
                 m = (alb_dry_snow - alb_bare_ice) / h_s_crit
                 alb_sur = m * h_s[day - 1] + alb_bare_ice
+                alb_sur_ar[day] = alb_sur
         else:
-            alb_sur = 0.77
+            alb_sur = alb_surf
+            alb_sur_ar[0] = alb_sur
+            alb_sur_ar[day] = alb_sur
 
         ### Ice Cover testing condition ###
         # Test if there is some ice cover or not. If they are an ice cover we perform the same computation as before,
@@ -512,9 +521,10 @@ def ice_thick(
                 delta_lw,
                 day,
                 limit_temp=temp_lim,
-                alb_surf=alb_sur,
+                alb_surf=alb_wat,
             )
             T_su_ar[day] = T_su
+            alb_sur_ar[day] = alb_wat
             if T_w >= T_bo:
                 # In this case the water can warm without producing sea ice
                 # Energy gain by the mixed layer in one day [J/m^2]
@@ -560,7 +570,7 @@ def ice_thick(
         fmt="%s ",
     )
 
-    return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar
+    return h_i, h_s, T_su_ar, T_mix_lay_ar, time_range, h_w_ar, alb_sur_ar
 
 
 ########################################################################################################################
@@ -578,6 +588,7 @@ def first_and_mult_ice():
         T_mix_lay_ice_free,
         time_range,
         h_w_ar,
+        alb,
     ) = ice_thick(h_i0=0.1, ocean_heat=True, Q_w=5, snow=False, h_s0=0)
 
     ### Yearly Diagnostics ###
@@ -657,7 +668,7 @@ def first_and_mult_ice():
 def ctrl_sim_without_snow():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar, alb = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=False, h_s0=0
     )
 
@@ -752,7 +763,7 @@ def ctrl_sim_without_snow():
 def ctrl_sim():
     ##### Settings for ice-free conditions #####
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar, alb_sur_ar = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=True, h_s0=0
     )
 
@@ -814,10 +825,10 @@ def ctrl_sim():
         plt.ylabel("Height [m]", size=8)
         plt.legend(fontsize=8)
         plt.grid()
-        plt.savefig(
-            save_dir + "PR" + str(lw_forcing) + "_TSIMAL_" + "water_height" + ".png",
-            dpi=300,
-        )
+        # plt.savefig(
+        #    save_dir + "PR" + str(lw_forcing) + "_TSIMAL_" + "water_height" + ".png",
+        #    dpi=300,
+        # )
         # plt.show()
         plt.clf()
 
@@ -953,6 +964,25 @@ def ctrl_sim():
 
     fig.tight_layout()
     plt.savefig(save_dir + "PR" + str(lw_forcing) + "_yearly_diag_TSIMAL.png", dpi=300)
+    # plt.show()
+    plt.clf()
+
+    ## Surface albedo evolution plot ##
+
+    plt.plot(time_range, alb_sur_ar, label="alb_sur")
+    plt.plot(time_range, h_snow, label="h_snow")
+    plt.title(
+        "TSIMAL Surface Albedo Evolution\n"
+        + r"dyn_alb = {}, $Q_W = {}W/m^2$, $h_i(t=0) = {}m$, $h_s(t=0) = {}m, T = {}$ years, $\gamma$ = {}".format(
+            dyn_alb, Q_w, h_i0, h_s0, N_years, gamma_SM
+        ),
+        size=10,
+    )
+    plt.xlabel("Days", size=10)
+    plt.ylabel("Surface Albedo [Adim] and Snow Thickness [m]", size=10)
+    plt.legend(fontsize=10)
+    plt.grid()
+    plt.savefig(save_dir + "surf_albedo.png", dpi=300)
     # plt.show()
     plt.clf()
 
@@ -1131,7 +1161,7 @@ def tuning_comp():
     alb = 0.77, Q_W = 2W/m² and snow == True"""
 
     ### Instancing ###
-    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar = ice_thick(
+    h_ice, h_snow, T_su, T_mix_lay, time_range, h_w_ar, alb = ice_thick(
         h_i0=0.1, ocean_heat=True, Q_w=2, snow=True, h_s0=0
     )
 

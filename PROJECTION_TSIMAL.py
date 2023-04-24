@@ -58,7 +58,7 @@ snow_fall_mod = 1
 temp_lim = True  # temperature limited to 0°C following instruction 2.2.2
 snow_ice_form = True  # enable or not the snow-ice formation process cfr instruction 3.2
 # maximum longwave perturbation of x W/m² at the end of the century to simulate GHG. [W/m²]
-lw_forcing = 25  # long wave radiation forcing [W/m²]
+lw_forcing = 3  # long wave radiation forcing [W/m²]
 
 ################################ Display Parameters #######################################
 plt.rcParams["text.usetex"] = True

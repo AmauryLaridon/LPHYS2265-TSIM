@@ -16,6 +16,7 @@ The models and the files are organised following the structure of the project wh
 1. Building the TSIM model
 2. Tuning the TSIM model and running Projections 
 3. Ensemble analysis and data analysis
+This repository is about part 1 and 2. For the ensemble analysis and data analysis all the informations are stored in the following repository : https://github.com/AmauryLaridon/LPHYS2265-TSIM-Multimodel-Analysis
 
 ### Numerical models 
 
